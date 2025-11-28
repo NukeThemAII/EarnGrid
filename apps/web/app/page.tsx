@@ -11,6 +11,7 @@ import { earngridVaultAbi } from "../lib/abi/earngridVault";
 import { erc20Abi } from "../lib/abi/erc20";
 import { appConfig } from "../lib/config";
 import { primaryVault } from "../lib/vaults";
+import { useStrategies } from "../lib/hooks";
 
 function formatUsd(value: number) {
   return `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -56,16 +57,36 @@ export default function Home() {
 
   const assetDecimals = typeof decimals === "number" ? decimals : 6;
 
-  const sharePrice = useMemo(() => {
-    if (!totalAssets || !totalSupply || totalSupply === 0n) return vault.sharePrice;
-    const price = Number(totalAssets) / Number(totalSupply);
-    return price;
-  }, [totalAssets, totalSupply, vault.sharePrice]);
+  const sharePriceAtomic = useMemo(() => {
+    if (!totalAssets || !totalSupply || totalSupply === 0n) return 1_000_000_000_000_000_000n; // 1e18
+    return (totalAssets * 1_000_000_000_000_000_000n) / totalSupply;
+  }, [totalAssets, totalSupply]);
+
+  const sharePriceDisplay = formatUnits(sharePriceAtomic, 18);
 
   const tvl = useMemo(() => {
     if (!totalAssets) return vault.tvl;
     return Number(formatUnits(totalAssets, assetDecimals));
   }, [assetDecimals, totalAssets, vault.tvl]);
+
+  // Fetch live strategy data
+  const strategies = useStrategies(appConfig.vaultAddress, vault.strategies, chainId);
+
+  // Calculate Blended APY
+  const blendedApy = useMemo(() => {
+    if (tvl === 0) return vault.apy;
+    const weightedApySum = strategies.reduce((acc, s) => acc + s.tvl * s.apy, 0);
+    return weightedApySum / tvl;
+  }, [strategies, tvl, vault.apy]);
+
+  // Update allocation percentages based on live TVL
+  const strategiesWithAlloc = useMemo(() => {
+    if (tvl === 0) return strategies;
+    return strategies.map(s => ({
+      ...s,
+      allocation: s.tvl / tvl
+    }));
+  }, [strategies, tvl]);
 
   return (
     <div className="space-y-6">
@@ -87,7 +108,7 @@ export default function Home() {
               </span>
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-soft">
                 <Sparkles size={16} />
-                Live APY targeting {(vault.apy * 100).toFixed(1)}%
+                Live APY targeting {(blendedApy * 100).toFixed(1)}%
               </span>
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-soft">
                 <Radio size={16} />
@@ -106,12 +127,12 @@ export default function Home() {
                 <p className="text-lg font-semibold text-ink">{formatUsd(tvl)}</p>
               </div>
               <div className="flex items-center justify-between">
-                <p className="text-slate-600">APY (placeholder)</p>
-                <p className="text-lg font-semibold text-ink">{(vault.apy * 100).toFixed(2)}%</p>
+                <p className="text-slate-600">APY (Live)</p>
+                <p className="text-lg font-semibold text-ink">{(blendedApy * 100).toFixed(2)}%</p>
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-slate-600">Share price</p>
-                <p className="text-lg font-semibold text-ink">${sharePrice.toFixed(4)}</p>
+                <p className="text-lg font-semibold text-ink">${Number(sharePriceDisplay).toFixed(6)}</p>
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-slate-600">Cash buffer</p>
@@ -126,7 +147,7 @@ export default function Home() {
         <MetricCard label="Total assets" value={formatUsd(tvl)} helper="USDC across all strategies" />
         <MetricCard
           label="Blended APY"
-          value={`${(vault.apy * 100).toFixed(2)}%`}
+          value={`${(blendedApy * 100).toFixed(2)}%`}
           helper="Net of curator-defined caps"
         />
         <MetricCard
@@ -138,13 +159,13 @@ export default function Home() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-        <StrategyTable strategies={vault.strategies} />
+        <StrategyTable strategies={strategiesWithAlloc} />
         <ActionPanel
           vaultAddress={appConfig.vaultAddress}
           assetAddress={resolvedAsset}
           chainId={chainId}
           decimals={assetDecimals}
-          sharePrice={sharePrice}
+          sharePriceAtomic={sharePriceAtomic}
         />
       </section>
     </div>

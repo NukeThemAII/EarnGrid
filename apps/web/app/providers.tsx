@@ -11,17 +11,15 @@ import { appConfig } from "../lib/config";
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_ID || "demo";
 
-const wagmiConfig = createConfig(
-  getDefaultConfig({
-    appName: "EarnGrid",
-    projectId,
-    chains: [base],
-    transports: {
-      [base.id]: http(appConfig.rpcUrl)
-    },
-    ssr: true
-  })
-);
+const wagmiConfig = getDefaultConfig({
+  appName: "EarnGrid",
+  projectId,
+  chains: [base],
+  transports: {
+    [base.id]: http(appConfig.rpcUrl)
+  },
+  ssr: true
+});
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());

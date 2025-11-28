@@ -28,6 +28,7 @@ EarnGrid is a DeFi meta-vault that allocates USDC across curated ERC-4626 strate
   - `EARNGRID_OWNER` (optional, defaults to msg.sender)
   - `EARNGRID_USDC` (defaults to Base USDC)
   - `EARNGRID_TIMELOCK`, `EARNGRID_NAME`, `EARNGRID_SYMBOL`, `EARNGRID_SALT`
+- Periphery wrapper: `EarnGridPeriphery` forwards deposits/withdrawals; withdraws require the caller to approve the periphery to burn their vault shares.
 
 ## Web dapp (Next.js)
 
@@ -43,8 +44,9 @@ EarnGrid is a DeFi meta-vault that allocates USDC across curated ERC-4626 strate
 - Rebalancer bot lives in `offchain/rebalancer` (TypeScript, Node 20+).
 - Indexer placeholder lives in `offchain/indexer`.
 - Add environment variables via `.env` in each service; never commit real keys.
-- Rebalancer reads vault state, computes weights, and prints `reallocate` calldata for allocator submission.
+- Rebalancer reads vault state + live strategy TVLs (ERC-4626 `asset` + `totalAssets`), computes weights, and prints `reallocate` calldata for allocator submission; tests run with `pnpm test` inside `offchain/rebalancer`.
 - Indexer reads vault totals and share price via viem; configure `BASE_RPC_URL` and `VAULT_ADDRESS`.
+- Strategy addresses in `offchain/rebalancer/src/config.ts` should be set to real ERC-4626 vaults (e.g., EVK, Morpho/MetaMorpho USDC on Base) before running in production.
 
 ## Notes
 

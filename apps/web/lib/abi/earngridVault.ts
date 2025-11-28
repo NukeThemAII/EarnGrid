@@ -47,5 +47,38 @@ export const earngridVaultAbi = [
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function"
+  },
+  {
+    inputs: [],
+    name: "totalSupply",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ internalType: "address", name: "owner", type: "address" }],
+    name: "maxWithdraw",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ internalType: "address", name: "strategy", type: "address" }],
+    name: "getStrategy",
+    outputs: [
+      {
+        components: [
+          { internalType: "uint256", name: "cap", type: "uint256" },
+          { internalType: "uint256", name: "allocPoint", type: "uint256" },
+          { internalType: "uint256", name: "totalManagedAssets", type: "uint256" },
+          { internalType: "bool", name: "enabled", type: "bool" }
+        ],
+        internalType: "struct IEarnGridVault.StrategyData",
+        name: "",
+        type: "tuple"
+      }
+    ],
+    stateMutability: "view",
+    type: "function"
   }
 ] as const;

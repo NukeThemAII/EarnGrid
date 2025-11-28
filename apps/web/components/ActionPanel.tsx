@@ -3,8 +3,8 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useMemo, useState } from "react";
 import { z } from "zod";
-import { useAccount, useSimulateContract, useWriteContract } from "wagmi";
-import { parseUnits, zeroAddress } from "viem";
+import { useAccount, useReadContract, useSimulateContract, useWriteContract } from "wagmi";
+import { formatUnits, parseUnits, zeroAddress } from "viem";
 import { earngridVaultAbi } from "../lib/abi/earngridVault";
 import { erc20Abi } from "../lib/abi/erc20";
 
@@ -21,10 +21,10 @@ interface ActionPanelProps {
   assetAddress: `0x${string}`;
   chainId: number;
   decimals: number;
-  sharePrice: number;
+  sharePriceAtomic: bigint; // 18-decimal fixed point price
 }
 
-export function ActionPanel({ vaultAddress, assetAddress, chainId, decimals, sharePrice }: ActionPanelProps) {
+export function ActionPanel({ vaultAddress, assetAddress, chainId, decimals, sharePriceAtomic }: ActionPanelProps) {
   const { address, isConnected } = useAccount();
   const { writeContractAsync } = useWriteContract();
 
@@ -44,14 +44,25 @@ export function ActionPanel({ vaultAddress, assetAddress, chainId, decimals, sha
     }
   }, [amount, decimals]);
 
-  const actionArgs =
-    mode === "deposit" ? [parsedAmount, receiver] : [parsedAmount, receiver, receiver];
+  const actionArgs: readonly [bigint, `0x${string}`] | readonly [bigint, `0x${string}`, `0x${string}`] =
+    mode === "deposit"
+      ? [parsedAmount, receiver] as const
+      : [parsedAmount, receiver, receiver] as const;
+
+  const { data: maxWithdraw } = useReadContract({
+    address: vaultAddress,
+    abi: earngridVaultAbi as any,
+    functionName: "maxWithdraw",
+    args: [address || zeroAddress],
+    chainId,
+    query: { enabled: isConnected && !!address && mode === "withdraw" }
+  });
 
   const { data: simulation, error: simulationError, isLoading: simLoading } = useSimulateContract({
     address: vaultAddress,
     abi: earngridVaultAbi,
     functionName: mode === "deposit" ? "deposit" : "withdraw",
-    args: actionArgs as readonly unknown[],
+    args: actionArgs as any,
     chainId,
     query: {
       enabled:
@@ -63,9 +74,10 @@ export function ActionPanel({ vaultAddress, assetAddress, chainId, decimals, sha
   });
 
   const sharesEstimate = useMemo(() => {
-    const numeric = Number(amount);
-    return Number.isFinite(numeric) ? numeric / sharePrice : 0;
-  }, [amount, sharePrice]);
+    if (sharePriceAtomic === 0n) return 0;
+    const estimate = (parsedAmount * 1_000_000_000_000_000_000n) / sharePriceAtomic;
+    return Number(formatUnits(estimate, decimals));
+  }, [parsedAmount, sharePriceAtomic, decimals]);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -80,6 +92,11 @@ export function ActionPanel({ vaultAddress, assetAddress, chainId, decimals, sha
     }
     if (parsedAmount === 0n) {
       setError("Enter an amount greater than zero");
+      return;
+    }
+
+    if (mode === "withdraw" && maxWithdraw != null && parsedAmount > (maxWithdraw as bigint)) {
+      setError("Amount exceeds maximum withdrawal limit");
       return;
     }
 
@@ -98,7 +115,7 @@ export function ActionPanel({ vaultAddress, assetAddress, chainId, decimals, sha
           chainId
         } as const);
 
-      await writeContractAsync(request);
+      await writeContractAsync(request as any);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Transaction failed";
       setTxError(message);
@@ -149,9 +166,8 @@ export function ActionPanel({ vaultAddress, assetAddress, chainId, decimals, sha
               key={item}
               type="button"
               onClick={() => setMode(item)}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                mode === item ? "bg-ink text-white shadow-soft" : "text-slate-600"
-              }`}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${mode === item ? "bg-ink text-white shadow-soft" : "text-slate-600"
+                }`}
             >
               {item}
             </button>
@@ -179,7 +195,7 @@ export function ActionPanel({ vaultAddress, assetAddress, chainId, decimals, sha
           </div>
           <div className="flex items-center justify-between">
             <span>Share price</span>
-            <span className="font-semibold text-ink">${sharePrice.toFixed(4)}</span>
+            <span className="font-semibold text-ink">${formatUnits(sharePriceAtomic, 18)}</span>
           </div>
         </div>
 

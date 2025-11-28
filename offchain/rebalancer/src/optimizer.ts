@@ -1,4 +1,4 @@
-import { StrategyConfig, VaultConfig } from "./config";
+import { StrategyConfig, VaultConfig } from "./config.js";
 
 export type StrategyObservation = {
   address: string;
@@ -16,7 +16,11 @@ function sumMinWeights(strategies: StrategyConfig[]) {
   return strategies.reduce((acc, item) => acc + item.minWeight, 0);
 }
 
-export function computeTargets(config: VaultConfig, observations: StrategyObservation[]): AllocationPlan[] {
+export function computeTargets(
+  config: VaultConfig,
+  observations: StrategyObservation[],
+  vaultTotalAssets: number
+): AllocationPlan[] {
   const minWeightSum = sumMinWeights(config.strategies);
   const reservedForCash = config.cashBuffer;
   let remaining = Math.max(0, 1 - reservedForCash - minWeightSum);
@@ -35,12 +39,30 @@ export function computeTargets(config: VaultConfig, observations: StrategyObserv
     const current = plans.find((plan) => plan.address === strategy.address);
     if (!current) continue;
 
-    const maxRoom = strategy.maxWeight - current.targetWeight;
-    if (maxRoom <= 0) continue;
+    // Calculate effective max weight based on cap
+    let effectiveMaxWeight = strategy.maxWeight;
+    if (vaultTotalAssets > 0) {
+      const capWeight = strategy.cap / vaultTotalAssets;
+      effectiveMaxWeight = Math.min(strategy.maxWeight, capWeight);
+    }
+
+    const maxRoom = effectiveMaxWeight - current.targetWeight;
+    if (maxRoom <= 0) {
+      if (effectiveMaxWeight < strategy.maxWeight && current.targetWeight >= effectiveMaxWeight) {
+        current.rationale = "Cap limited";
+      }
+      continue;
+    }
 
     const allocation = Math.min(maxRoom, remaining);
     current.targetWeight += allocation;
     current.rationale = current.rationale === "Risk floor" ? "Yield-weighted" : current.rationale;
+
+    // Check if we hit the cap
+    if (vaultTotalAssets > 0 && current.targetWeight * vaultTotalAssets >= strategy.cap * 0.9999) {
+      current.rationale = "Cap limited";
+    }
+
     remaining -= allocation;
   }
 
@@ -70,11 +92,9 @@ export function computeTargets(config: VaultConfig, observations: StrategyObserv
 
   // Re-inject any observed hard cap breaches into rationale.
   for (const plan of plans) {
-    const obs = observations.find((item) => item.address === plan.address);
-    if (!obs) continue;
     const configItem = config.strategies.find((item) => item.address === plan.address);
     if (!configItem) continue;
-    const proposedValue = obs.tvl * (plan.targetWeight / Math.max(obs.tvl, 1));
+    const proposedValue = vaultTotalAssets * plan.targetWeight;
     if (proposedValue > configItem.cap) {
       plan.rationale = "Cap limited";
     }

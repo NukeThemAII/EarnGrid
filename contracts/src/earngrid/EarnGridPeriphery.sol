@@ -41,6 +41,7 @@ contract EarnGridPeriphery {
     /// @return sharesBurned Number of shares burned in the withdrawal.
     function withdrawUSDC(uint256 assets, address receiver, address owner) external returns (uint256 sharesBurned) {
         if (assets == 0) revert ZeroAssets();
+        // Caller must hold or be approved to burn `owner`'s shares; this contract just forwards to the vault.
         sharesBurned = vault.withdraw(assets, receiver, owner);
     }
 }

@@ -31,7 +31,8 @@ async function main() {
 
   const totalAssetsValue = (totalAssets.result ?? 0n) as bigint;
   const totalSupplyValue = (totalSupply.result ?? 0n) as bigint;
-  const sharePrice = totalSupplyValue === 0n ? 1 : Number(totalAssetsValue) / Number(totalSupplyValue);
+  const sharePriceAtomic = totalSupplyValue === 0n ? 1_000_000_000_000_000_000n : (totalAssetsValue * 1_000_000_000_000_000_000n) / totalSupplyValue;
+  const sharePrice = formatUnits(sharePriceAtomic, 18);
 
   console.log("Vault", vaultAddress);
   console.log("RPC", rpcUrl);
