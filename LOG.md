@@ -36,3 +36,18 @@
   - Ensured share price remains 18-decimal fixed point via BigInt in `onchain.ts`.
   - Minor cleanups to imports and type casts; unit tests (`pnpm test` in `offchain/rebalancer`) passing.
 - **Note**: Frontend live strategy hooks are not yet implemented; StrategyTable still uses placeholder data.
+
+## 2025-11-29 UI Live Data Pass
+- **Frontend**:
+  - Added global Connect button in layout header.
+  - `useStrategies` now fetches live strategy TVL (ERC4626 `totalAssets`), caps, and queue positions; StrategyTable surfaces rankings.
+  - Home page shows live blended APY (tvl-weighted), timelock, and performance fee; StrategyTable uses live data.
+  - ABI expanded with queue/timelock/fee getters for frontend reads.
+
+## 2025-11-28 UI Audit & Enhancements
+- **Audit**: Conducted full UI/Contract audit, findings saved in `UI.md`.
+- **Feature**: Added Global Connect Button to `layout.tsx` header.
+- **Feature**: Visualized Supply/Withdraw Queues in `StrategyTable` (showing "IN #X" / "OUT #X").
+- **Feature**: Added `Timelock` and `Performance Fee` metrics to `page.tsx`.
+- **Tech**: Updated `earngridVaultAbi` and `useStrategies` hook to support new data points.
+- **Build**: Verified frontend build (`pnpm build` passed).

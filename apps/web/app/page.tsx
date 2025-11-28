@@ -88,6 +88,22 @@ export default function Home() {
     }));
   }, [strategies, tvl]);
 
+  const { data: timelock } = useReadContract({
+    address: appConfig.vaultAddress,
+    abi: earngridVaultAbi,
+    functionName: "timelock",
+    chainId,
+    query: { enabled: !!appConfig.vaultAddress }
+  });
+
+  const { data: fee } = useReadContract({
+    address: appConfig.vaultAddress,
+    abi: earngridVaultAbi,
+    functionName: "fee",
+    chainId,
+    query: { enabled: !!appConfig.vaultAddress }
+  });
+
   return (
     <div className="space-y-6">
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-r from-white/95 via-white/80 to-teal/5 p-6 shadow-soft backdrop-blur">
@@ -151,11 +167,15 @@ export default function Home() {
           helper="Net of curator-defined caps"
         />
         <MetricCard
-          label="Smearing window"
-          value={`${vault.smearDuration / 3600} hours`}
-          helper="Rebalances avoid sudden moves"
+          label="Timelock"
+          value={timelock ? `${Number(timelock) / 3600} hours` : "-"}
+          helper="Safety delay for changes"
         />
-        <MetricCard label="Vault symbol" value={vault.symbol} helper="ERC-4626 compliant shares" />
+        <MetricCard
+          label="Performance Fee"
+          value={fee ? `${(Number(fee) / 100).toFixed(2)}%` : "0%"}
+          helper="Protocol fee on yield"
+        />
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[2fr,1fr]">

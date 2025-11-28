@@ -1,3 +1,4 @@
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
               <div className="flex items-center gap-3">
                 <span className="rounded-full bg-teal/10 px-3 py-1 text-xs font-medium text-teal">Base Mainnet</span>
+                <ConnectButton showBalance={false} accountStatus="address" chainStatus="icon" />
               </div>
             </header>
             <main className="pt-6">{children}</main>
