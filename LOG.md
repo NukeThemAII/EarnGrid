@@ -43,11 +43,16 @@
   - `useStrategies` now fetches live strategy TVL (ERC4626 `totalAssets`), caps, and queue positions; StrategyTable surfaces rankings.
   - Home page shows live blended APY (tvl-weighted), timelock, and performance fee; StrategyTable uses live data.
   - ABI expanded with queue/timelock/fee getters for frontend reads.
+  - Strategy TVL now respects per-strategy decimals (fetches ERC4626 `decimals`, falls back to 6).
+- **Admin UI**:
+  - Added `/admin` dashboard surfacing owner/curator/guardian/allocator roles and a submit-cap form (6-decimal USDC).
+  - Queue management UI scaffolded (read-only for now); reallocation/timelock acceptance still pending.
 
 ## 2025-11-28 UI Audit & Enhancements
 - **Audit**: Conducted full UI/Contract audit, findings saved in `UI.md`.
 - **Feature**: Added Global Connect Button to `layout.tsx` header.
 - **Feature**: Visualized Supply/Withdraw Queues in `StrategyTable` (showing "IN #X" / "OUT #X").
 - **Feature**: Added `Timelock` and `Performance Fee` metrics to `page.tsx`.
+- **Feature**: Implemented **Admin Dashboard** at `/admin` with role-based access control (Owner/Curator/Allocator/Guardian) and Cap Management UI.
 - **Tech**: Updated `earngridVaultAbi` and `useStrategies` hook to support new data points.
 - **Build**: Verified frontend build (`pnpm build` passed).

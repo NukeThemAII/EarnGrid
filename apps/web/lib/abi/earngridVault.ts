@@ -122,5 +122,47 @@ export const earngridVaultAbi = [
     outputs: [{ internalType: "uint96", name: "", type: "uint96" }],
     stateMutability: "view",
     type: "function"
+  },
+  {
+    inputs: [],
+    name: "owner",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "curator",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "guardian",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ internalType: "address", name: "account", type: "address" }],
+    name: "isAllocator",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ internalType: "address", name: "strategy", type: "address" }, { internalType: "uint256", name: "cap", type: "uint256" }],
+    name: "submitCap",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [{ internalType: "address[]", name: "newQueue", type: "address[]" }],
+    name: "setSupplyQueue",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
   }
 ] as const;

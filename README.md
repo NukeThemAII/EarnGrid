@@ -38,6 +38,8 @@ EarnGrid is a DeFi meta-vault that allocates USDC across curated ERC-4626 strate
 - Production build: `pnpm build` inside `apps/web`.
 - Env (`apps/web/.env.example`): set `NEXT_PUBLIC_VAULT_ADDRESS`, `NEXT_PUBLIC_ASSET_ADDRESS`, `NEXT_PUBLIC_CHAIN_ID`, `NEXT_PUBLIC_BASE_RPC_URL`, `NEXT_PUBLIC_WALLETCONNECT_ID`.
 - Action panel wires to the vault’s `deposit` / `withdraw` functions via wagmi; remember to approve USDC to the vault before depositing.
+- **Admin Dashboard**: Located at `/admin`. Provides role-based access (Owner/Curator/Allocator/Guardian) to manage caps, queues, and timelocks.
+- **Live Data**: Displays real-time TVL, blended APY, supply/withdraw queues, and vault parameters (fee, timelock).
 
 ## Off-chain services
 

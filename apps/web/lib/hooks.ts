@@ -22,6 +22,14 @@ export function useStrategies(vaultAddress: `0x${string}`, strategies: StrategyI
     chainId
   }));
 
+  // 2b. Fetch strategy decimals (fallback to 6 if missing)
+  const decimalsCalls = strategies.map((s) => ({
+    address: s.address as `0x${string}`,
+    abi: erc4626Abi,
+    functionName: "decimals",
+    chainId
+  }));
+
   // 3. Fetch Queues (Supply & Withdraw)
   // We fetch a fixed number of slots (e.g., 10) to cover reasonable queue lengths
   const queueSlots = Array.from({ length: 10 }, (_, i) => i);
@@ -50,6 +58,11 @@ export function useStrategies(vaultAddress: `0x${string}`, strategies: StrategyI
     query: { enabled: strategies.length > 0 }
   });
 
+  const { data: decimalsData } = useReadContracts({
+    contracts: decimalsCalls,
+    query: { enabled: strategies.length > 0 }
+  });
+
   const { data: supplyQueueData } = useReadContracts({
     contracts: supplyQueueCalls,
     query: { enabled: !!vaultAddress }
@@ -68,9 +81,11 @@ export function useStrategies(vaultAddress: `0x${string}`, strategies: StrategyI
   const mergedStrategies = strategies.map((s, i) => {
     const vData = vaultData?.[i]?.result as any; // StrategyData struct
     const sData = strategyData?.[i]?.result as bigint; // totalAssets
+    const sDecimals = decimalsData?.[i]?.result as number | undefined;
+    const decimals = typeof sDecimals === "number" ? sDecimals : 6;
 
     const cap = vData ? Number(formatUnits(vData.cap, 6)) : s.cap; // Fallback to config if loading
-    const tvl = sData ? Number(formatUnits(sData, 6)) : s.tvl;
+    const tvl = sData ? Number(formatUnits(sData, decimals)) : s.tvl;
 
     // Determine queue positions (1-based index, or null if not in queue)
     const supplyIndex = supplyQueue.findIndex((addr) => addr?.toLowerCase() === s.address.toLowerCase());

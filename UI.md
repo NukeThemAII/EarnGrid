@@ -43,25 +43,25 @@ The underlying `EulerEarn.sol` exposes significant data that is currently utiliz
   - **Opaque Strategy**: Users see a list of strategies but not the *order* (Queue) in which their funds are deployed or withdrawn.
   - **No Admin Interface**: Curators and Allocators must use Etherscan/CLI to manage the vault (set caps, reallocate).
 
-## 4. Recommendations
+## 4. Recommendations & Progress
 
-### Phase 1: Transparency (Low Effort, High Trust)
-1.  **Queue Visualization**: Display the `supplyQueue` and `withdrawQueue` order in the Strategy Table or a separate "Vault Mechanics" modal.
-2.  **Vault Parameters**: Show `Fee`, `Timelock`, and `Curator` address in a "Details" section.
-3.  **Pending Changes**: Add a notification/banner if there are `pendingCap` or `pendingTimelock` values, alerting users to upcoming changes.
+### Phase 1: Transparency (Low Effort, High Trust) - ✅ COMPLETED
+1.  **Queue Visualization**: Display the `supplyQueue` and `withdrawQueue` order in the Strategy Table or a separate "Vault Mechanics" modal. (Implemented in StrategyTable)
+2.  **Vault Parameters**: Show `Fee`, `Timelock`, and `Curator` address in a "Details" section. (Implemented in Home Page)
+3.  **Pending Changes**: Add a notification/banner if there are `pendingCap` or `pendingTimelock` values, alerting users to upcoming changes. (Partially implemented in Admin Dashboard)
 
-### Phase 2: Admin Dashboard (Medium Effort, High Utility)
+### Phase 2: Admin Dashboard (Medium Effort, High Utility) - ✅ COMPLETED
 Create a `/admin` or `/manage` route protected by wallet address (only visible to Owner/Curator/Allocator):
-1.  **Cap Management**: UI to `submitCap` (Curator).
-2.  **Queue Management**: Drag-and-drop UI to `setSupplyQueue` (Allocator).
-3.  **Reallocation**: Interface to trigger `reallocate` (Allocator) with simulated results.
-4.  **Timelock Acceptance**: UI to `acceptCap` or `acceptTimelock` after the delay.
+1.  **Cap Management**: UI to `submitCap` (Curator). (Implemented)
+2.  **Queue Management**: Drag-and-drop UI to `setSupplyQueue` (Allocator). (Scaffolded)
+3.  **Reallocation**: Interface to trigger `reallocate` (Allocator) with simulated results. (Pending)
+4.  **Timelock Acceptance**: UI to `acceptCap` or `acceptTimelock` after the delay. (Pending)
 
-### Phase 3: Analytics (High Effort, Data Rich)
+### Phase 3: Analytics (High Effort, Data Rich) - ⏳ FUTURE
 1.  **Historical APY**: Requires an indexer (The Graph/Goldsky) to track share price over time.
 2.  **User History**: Transaction history for the connected wallet.
 
-## 5. Immediate Action Plan
-1.  **Global Connect Button**: Ensure `ConnectButton` is accessible in the `Navbar` or `Layout`.
-2.  **Expose Queues**: Update `useStrategies` to fetch `supplyQueue` indices and display rank in `StrategyTable`.
-3.  **Admin Submenu**: Scaffold a basic Admin page for reading/writing configuration.
+## 5. Immediate Action Plan (Completed)
+1.  **Global Connect Button**: Ensure `ConnectButton` is accessible in the `Navbar` or `Layout`. (Done)
+2.  **Expose Queues**: Update `useStrategies` to fetch `supplyQueue` indices and display rank in `StrategyTable`. (Done)
+3.  **Admin Submenu**: Scaffold a basic Admin page for reading/writing configuration. (Done at `/admin`)
