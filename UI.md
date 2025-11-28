@@ -55,7 +55,7 @@ Create a `/admin` or `/manage` route protected by wallet address (only visible t
 1.  **Cap Management**: UI to `submitCap` (Curator). (Implemented)
 2.  **Queue Management**: Drag-and-drop UI to `setSupplyQueue` (Allocator). (Scaffolded)
 3.  **Reallocation**: Interface to trigger `reallocate` (Allocator) with simulated results. (Pending)
-4.  **Timelock Acceptance**: UI to `acceptCap` or `acceptTimelock` after the delay. (Pending)
+4.  **Timelock/Cap Acceptance**: UI to `acceptCap` after the delay (Guardian). Timelock acceptance for other params remains pending.
 
 ### Phase 3: Analytics (High Effort, Data Rich) - ⏳ FUTURE
 1.  **Historical APY**: Requires an indexer (The Graph/Goldsky) to track share price over time.

@@ -1,13 +1,15 @@
 "use client";
 
-import { useAccount, useReadContract, useWriteContract } from "wagmi";
+import { useAccount, useReadContract, useWriteContract, useReadContracts } from "wagmi";
 import { earngridVaultAbi } from "../../lib/abi/earngridVault";
 import { appConfig } from "../../lib/config";
+import { primaryVault } from "../../lib/vaults";
 import { useState } from "react";
-import { parseUnits, isAddress } from "viem";
+import { parseUnits, isAddress, formatUnits } from "viem";
 import { Shield, Users, Lock, AlertTriangle } from "lucide-react";
 
 export default function AdminPage() {
+    const strategies = primaryVault.strategies;
     const { address } = useAccount();
     const chainId = appConfig.chainId;
     const vaultAddress = appConfig.vaultAddress;
@@ -72,6 +74,45 @@ export default function AdminPage() {
                 chainId
             });
             setStatus("Transaction sent!");
+        } catch (err: any) {
+            setStatus(err.message || "Failed");
+        }
+    }
+
+    // Fetch pending caps for all known strategies
+    const pendingCapCalls = strategies.map((s) => ({
+        address: vaultAddress,
+        abi: earngridVaultAbi,
+        functionName: "pendingCap",
+        args: [s.address],
+        chainId
+    }));
+
+    const { data: pendingCapsData } = useReadContracts({
+        contracts: pendingCapCalls,
+        query: { enabled: !!vaultAddress }
+    });
+
+    // Filter for active pending caps
+    const pendingCaps = strategies.map((s, i) => {
+        const result = pendingCapsData?.[i]?.result as [bigint, bigint] | undefined;
+        if (!result) return null;
+        const [value, validAt] = result;
+        if (validAt === 0n) return null;
+        return { ...s, pendingValue: value, validAt };
+    }).filter((item): item is NonNullable<typeof item> => item !== null);
+
+    async function handleAcceptCap(strategyAddress: `0x${string}`) {
+        try {
+            setStatus("Accepting cap...");
+            await writeContractAsync({
+                address: vaultAddress,
+                abi: earngridVaultAbi,
+                functionName: "acceptCap",
+                args: [strategyAddress],
+                chainId
+            });
+            setStatus("Cap accepted!");
         } catch (err: any) {
             setStatus(err.message || "Failed");
         }
@@ -156,12 +197,12 @@ export default function AdminPage() {
                             <Users className="text-blue-600" />
                             <h2 className="text-lg font-semibold text-ink">Allocator Controls</h2>
                         </div>
-                        <p className="text-sm text-slate-500">
-                            Queue management is currently read-only in this dashboard version. Use CLI for complex reallocations.
+                        <p className="text-sm text-slate-500 mb-4">
+                            Queue management is currently read-only. Use CLI for complex reallocations.
                         </p>
-                        <div className="mt-4 rounded-xl bg-slate-50 p-4">
+                        <div className="rounded-xl bg-slate-50 p-4">
                             <p className="text-xs font-medium text-slate-400 uppercase">Supply Queue</p>
-                            <p className="text-sm text-slate-600 italic">Coming soon...</p>
+                            <p className="text-sm text-slate-600 italic">Coming soon: Drag & Drop Reordering</p>
                         </div>
                     </div>
                 )}
@@ -173,9 +214,30 @@ export default function AdminPage() {
                             <Lock className="text-rose-600" />
                             <h2 className="text-lg font-semibold text-ink">Guardian Controls</h2>
                         </div>
-                        <p className="text-sm text-slate-500">
-                            No pending timelocks detected.
-                        </p>
+                        {pendingCaps.length === 0 ? (
+                            <p className="text-sm text-slate-500">No pending caps detected.</p>
+                        ) : (
+                            <div className="space-y-3">
+                                {pendingCaps.map((pc) => (
+                                    <div key={pc.address} className="flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                                        <div>
+                                            <p className="text-sm font-medium text-ink">{pc.name}</p>
+                                            <p className="text-xs text-slate-500">
+                                                New Cap: {formatUnits(pc.pendingValue, 6)} USDC
+                                                <br />
+                                                Valid At: {new Date(Number(pc.validAt) * 1000).toLocaleString()}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleAcceptCap(pc.address as `0x${string}`)}
+                                            className="rounded-lg bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-200"
+                                        >
+                                            Accept
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

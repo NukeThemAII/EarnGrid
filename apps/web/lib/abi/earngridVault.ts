@@ -164,5 +164,39 @@ export const earngridVaultAbi = [
     outputs: [],
     stateMutability: "nonpayable",
     type: "function"
+  },
+  {
+    inputs: [{ internalType: "address", name: "strategy", type: "address" }],
+    name: "pendingCap",
+    outputs: [
+      { internalType: "uint136", name: "value", type: "uint136" },
+      { internalType: "uint64", name: "validAt", type: "uint64" }
+    ],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    inputs: [{ internalType: "address", name: "strategy", type: "address" }],
+    name: "acceptCap",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      {
+        components: [
+          { internalType: "address", name: "id", type: "address" },
+          { internalType: "uint256", name: "assets", type: "uint256" }
+        ],
+        internalType: "struct MarketAllocation[]",
+        name: "allocations",
+        type: "tuple[]"
+      }
+    ],
+    name: "reallocate",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
   }
 ] as const;

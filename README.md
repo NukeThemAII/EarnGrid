@@ -40,6 +40,7 @@ EarnGrid is a DeFi meta-vault that allocates USDC across curated ERC-4626 strate
 - Action panel wires to the vault’s `deposit` / `withdraw` functions via wagmi; remember to approve USDC to the vault before depositing.
 - **Admin Dashboard**: Located at `/admin`. Provides role-based access (Owner/Curator/Allocator/Guardian) to manage caps, queues, and timelocks.
 - **Live Data**: Displays real-time TVL, blended APY, supply/withdraw queues, and vault parameters (fee, timelock).
+- **Guardian Flow**: Pending caps (submitted by Curator) are surfaced; Guardians can accept them directly from the dashboard.
 
 ## Off-chain services
 
