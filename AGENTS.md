@@ -2,6 +2,13 @@
 
 > Repo goal: a **decentralized USDC “savings” dApp** on Base where users deposit USDC and receive ERC‑4626 vault shares; the vault allocates across a **whitelisted set of yield sources** to target **~7–10% net APY** (market‑dependent) with explicit risk controls and transparent allocation.
 
+**Docs to read first (required for all agents):**
+
+* `docs/ARCHITECTURE.md` — system design, state model, and call flows (deposit/withdraw/rebalance/harvest)
+* `docs/THREAT_MODEL.md` — risks, mitigations, and test mapping
+* `docs/STRATEGY_UNIVERSE.md` — strategy due diligence template + allowlist/caps proposal
+* `docs/RUNBOOK.md` — ops + incident response (to be completed during implementation)
+
 ---
 
 ## 0) Product summary
@@ -134,10 +141,10 @@ If an adapter is required, standardize:
     docker-compose.yml
     deployment/          # infra configs (Railway/Fly/Render/etc.)
   /docs
-    ARCHITECTURE.md
-    STRATEGY_UNIVERSE.md
-    THREAT_MODEL.md
-    RUNBOOK.md
+    ARCHITECTURE.md      # ✅ design + flows (deposit/withdraw/rebalance/harvest)
+    THREAT_MODEL.md      # ✅ threats/mitigations/tests
+    STRATEGY_UNIVERSE.md # ✅ strategy due diligence + allowlist/caps
+    RUNBOOK.md           # ops + incident response
   AGENTS.md
   README.md
 ```
@@ -302,11 +309,21 @@ Constraints example:
 
 ## 9) Execution plan (agents)
 
+**Global rule:** before implementing or changing anything, agents must consult:
+
+* `docs/ARCHITECTURE.md` for intended call flows and invariants
+* `docs/THREAT_MODEL.md` for threat→mitigation→test requirements
+* `docs/STRATEGY_UNIVERSE.md` for which strategies are allowed and how to integrate them
+
 ### Agent: Product Owner (PO)
 
 **Deliverables**
 
-* `/docs/ARCHITECTURE.md` and `/docs/THREAT_MODEL.md` baseline
+* Ensure these exist and stay consistent:
+
+  * `docs/ARCHITECTURE.md`
+  * `docs/THREAT_MODEL.md`
+  * `docs/STRATEGY_UNIVERSE.md`
 * Initial risk tier definitions and limits
 * Fee disclosure + user-facing safety disclaimers
 
@@ -323,7 +340,7 @@ Constraints example:
 
 **Deliverables**
 
-* `/docs/STRATEGY_UNIVERSE.md` listing candidate USDC strategies on Base:
+* Update `docs/STRATEGY_UNIVERSE.md` with candidate USDC strategies on Base:
 
   * contract addresses
   * ERC‑4626 compatibility
@@ -348,10 +365,10 @@ Constraints example:
 
 **Tasks**
 
-* Implement ERC‑4626 vault with queues/caps/tier limits
-* Implement performance fee (3% HWM) + events
-* Implement roles, timelock flow, emergency pause
-* Provide Base Sepolia + Base mainnet deployment scripts
+* Implement ERC‑4626 vault with queues/caps/tier limits **as specified in** `docs/ARCHITECTURE.md`.
+* Implement performance fee (3% HWM) + events.
+* Implement roles, timelock flow, emergency pause **per** `docs/THREAT_MODEL.md` mitigations.
+* Provide Base Sepolia + Base mainnet deployment scripts.
 
 ### Agent: Backend / Indexer Engineer
 
@@ -365,9 +382,9 @@ Constraints example:
 
 **Tasks**
 
-* Hourly sampler for `assetsPerShare`
-* Rolling 7d/30d APY
-* JSON endpoints for UI
+* Hourly sampler for `assetsPerShare`.
+* Rolling 7d/30d APY.
+* JSON endpoints for UI.
 
 ### Agent: Frontend Engineer
 
@@ -382,21 +399,21 @@ Constraints example:
 
 **Tasks**
 
-* Integrate wagmi/viem for reads/writes
-* Charts: share price + allocations
-* Role-gated admin UI
+* Integrate wagmi/viem for reads/writes.
+* Charts: share price + allocations.
+* Role-gated admin UI.
 
 ### Agent: DevOps / Release Engineer
 
 **Deliverables**
 
-* CI pipeline + deployment
-* `/docs/RUNBOOK.md`
+* CI pipeline + deployment.
+* `docs/RUNBOOK.md`.
 
 **Tasks**
 
-* Env management, RPC providers, explorer API keys
-* Monitoring: uptime + indexer lag + alerting
+* Env management, RPC providers, explorer API keys.
+* Monitoring: uptime + indexer lag + alerting.
 
 ---
 
@@ -435,7 +452,7 @@ Suggested env vars:
 ## 12) v0 constants (verify before deploy)
 
 * Base USDC: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
-* Initial strategy candidates: Gauntlet/Morpho curated USDC vault(s) (addresses to be confirmed in `/docs/STRATEGY_UNIVERSE.md`).
+* Initial strategy candidates: Gauntlet/Morpho curated USDC vault(s) (addresses to be confirmed in `docs/STRATEGY_UNIVERSE.md`).
 
 ---
 
