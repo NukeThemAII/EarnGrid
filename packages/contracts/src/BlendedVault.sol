@@ -3,11 +3,12 @@ pragma solidity ^0.8.23;
 
 import {AccessControl} from "openzeppelin-contracts/access/AccessControl.sol";
 import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
+import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import {ERC4626} from "openzeppelin-contracts/token/ERC20/extensions/ERC4626.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "openzeppelin-contracts/security/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/utils/ReentrancyGuard.sol";
 
 contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -286,11 +287,15 @@ contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
         assets = super.redeem(shares, receiver, owner);
     }
 
-    function beforeWithdraw(uint256 assets, uint256) internal override {
+    function _withdraw(
+        address caller,
+        address receiver,
+        address owner,
+        uint256 assets,
+        uint256 shares
+    ) internal override {
         _ensureLiquidity(assets);
-    }
-
-    function afterWithdraw(uint256, uint256) internal override {
+        super._withdraw(caller, receiver, owner, assets, shares);
         if (totalSupply() == 0) {
             highWatermarkAssetsPerShare = 1e18;
         }
@@ -729,8 +734,8 @@ contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
         if (tierLimit > tierExposure[config.tier]) {
             maxByTier = tierLimit - tierExposure[config.tier];
         }
-        uint256 maxDeposit = IERC4626(strategy).maxDeposit(address(this));
-        uint256 max = _min(remaining, _min(maxByCap, _min(maxByTier, maxDeposit)));
+        uint256 maxDepositAmount = IERC4626(strategy).maxDeposit(address(this));
+        uint256 max = _min(remaining, _min(maxByCap, _min(maxByTier, maxDepositAmount)));
         return max;
     }
 

@@ -18,8 +18,9 @@ contract BlendedVaultReentrancyTest is BlendedVaultBaseTest {
         vm.prank(curator);
         vault.executeAddStrategy(address(evil), 0, 1_000 * USDC, true, salt);
 
+        bytes32 allocatorRole = vault.ALLOCATOR_ROLE();
         vm.prank(owner);
-        vault.grantRole(vault.ALLOCATOR_ROLE(), address(evil));
+        vault.grantRole(allocatorRole, address(evil));
 
         vm.prank(curator);
         vault.setIdleLiquidityBps(10_000);

@@ -32,16 +32,27 @@ contract MaliciousReentrantStrategy is ERC4626 {
         entered = false;
     }
 
-    function _afterDeposit(uint256, uint256) internal override {
+    function _deposit(address caller, address receiver, uint256 assets, uint256 shares)
+        internal
+        override
+    {
+        super._deposit(caller, receiver, assets, shares);
         if (reenterOnDeposit) {
             _tryReenter();
         }
     }
 
-    function _beforeWithdraw(uint256, uint256) internal override {
+    function _withdraw(
+        address caller,
+        address receiver,
+        address owner,
+        uint256 assets,
+        uint256 shares
+    ) internal override {
         if (reenterOnWithdraw) {
             _tryReenter();
         }
+        super._withdraw(caller, receiver, owner, assets, shares);
     }
 
     function _tryReenter() internal {
