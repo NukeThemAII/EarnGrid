@@ -32,6 +32,20 @@ export function OnchainMetrics() {
     query: { enabled: Boolean(vaultAddress) },
   });
 
+  const { data: idleLiquidityBps } = useReadContract({
+    abi: blendedVaultAbi,
+    address: safeVaultAddress,
+    functionName: "idleLiquidityBps",
+    query: { enabled: Boolean(vaultAddress) },
+  });
+
+  const { data: maxDailyIncreaseBps } = useReadContract({
+    abi: blendedVaultAbi,
+    address: safeVaultAddress,
+    functionName: "maxDailyIncreaseBps",
+    query: { enabled: Boolean(vaultAddress) },
+  });
+
   const { data: pausedDeposits } = useReadContract({
     abi: blendedVaultAbi,
     address: safeVaultAddress,
@@ -71,22 +85,42 @@ export function OnchainMetrics() {
         <div className="grid gap-3 text-sm text-muted md:grid-cols-2">
           <div className="flex items-center justify-between">
             <span>Vault assets</span>
-            <span className="text-text number">{totalAssets ? formatUsd(totalAssets, usdcDecimals) : "--"}</span>
+            <span className="text-text number">
+              {totalAssets !== undefined ? formatUsd(totalAssets, usdcDecimals) : "--"}
+            </span>
           </div>
           <div className="flex items-center justify-between">
             <span>Vault supply</span>
-            <span className="text-text number">{totalSupply ? formatNumber(totalSupply, usdcDecimals) : "--"}</span>
+            <span className="text-text number">
+              {totalSupply !== undefined ? formatNumber(totalSupply, usdcDecimals) : "--"}
+            </span>
           </div>
           <div className="flex items-center justify-between">
             <span>Assets per share</span>
             <span className="text-text number">
-              {assetsPerShare ? formatNumber(assetsPerShare, 18, 6) : "--"} USDC
+              {assetsPerShare !== undefined ? formatNumber(assetsPerShare, 18, 6) : "--"} USDC
             </span>
           </div>
           <div className="flex items-center justify-between">
             <span>Deposits / Withdrawals</span>
             <span className="text-text">
               {(pausedDeposits || pausedWithdrawals) ? "Paused" : "Active"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Idle liquidity target</span>
+            <span className="text-text number">
+              {idleLiquidityBps !== undefined ? `${formatBps(idleLiquidityBps)}%` : "--"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Harvest guard</span>
+            <span className="text-text number">
+              {maxDailyIncreaseBps !== undefined
+                ? maxDailyIncreaseBps === 0n
+                  ? "Disabled"
+                  : `${formatBps(maxDailyIncreaseBps)}% / day`
+                : "--"}
             </span>
           </div>
         </div>
@@ -109,4 +143,8 @@ export function OnchainMetrics() {
       </CardContent>
     </Card>
   );
+}
+
+function formatBps(value: bigint): string {
+  return (Number(value) / 100).toFixed(2);
 }

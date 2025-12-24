@@ -57,6 +57,7 @@
 - Added onchain strategies panel on `/strategies` using vault `getStrategies` + config reads.
 - Added onchain strategy metadata (name/symbol) and live deposit/withdraw queue ordering.
 - Added price history endpoint and sparkline fed by indexer snapshots.
+- Refined header navigation + wallet status and enriched deposit/withdraw panel with balances, allowance, and previews.
 
 ### DevOps
 - Added GitHub Actions CI for Foundry tests and TS lint/typechecks.

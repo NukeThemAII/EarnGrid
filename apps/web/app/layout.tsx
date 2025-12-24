@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Inter, Space_Mono } from "next/font/google";
 
 import { SiteHeader } from "@/components/site-header";
-import { WalletButton } from "@/components/wallet-button";
 import { Providers } from "@/app/providers";
 import "@/app/globals.css";
 
@@ -20,9 +19,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${inter.variable} ${spaceMono.variable} font-sans bg-bg text-text`}>
         <Providers>
           <SiteHeader />
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-end px-6 py-4">
-            <WalletButton />
-          </div>
           <main className="mx-auto w-full max-w-6xl px-6 pb-16">{children}</main>
         </Providers>
       </body>
