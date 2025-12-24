@@ -1,5 +1,6 @@
 import { AllocationsTable } from "@/components/allocations-table";
 import { MetricCard } from "@/components/metric-card";
+import { OnchainAllocationSummary } from "@/components/onchain-allocation-summary";
 import { OnchainMetrics } from "@/components/onchain-metrics";
 import { Sparkline } from "@/components/sparkline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,7 +69,10 @@ export default async function DashboardPage() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <AllocationsTable allocations={allocations?.allocations ?? []} />
+        <div className="space-y-6">
+          <AllocationsTable allocations={allocations?.allocations ?? []} />
+          <OnchainAllocationSummary />
+        </div>
         <div className="space-y-6">
           <OnchainMetrics />
           <Card className="animate-rise">

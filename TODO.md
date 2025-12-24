@@ -11,8 +11,8 @@
 - Persist indexer health metrics (lag, last block, error count).
 
 ## Frontend
-- Add role-gated execute timelock actions and queue management UX.
-- Add chart components for share price history and allocation breakdown.
+- Add role-gated execute timelock actions and deeper queue management UX.
+- Add richer charts for share price history and historical allocation breakdown.
 
 ## Docs
 - Expand `docs/STRATEGY_UNIVERSE.md` with full due diligence notes.

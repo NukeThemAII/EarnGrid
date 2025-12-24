@@ -58,6 +58,9 @@
 - Added onchain strategy metadata (name/symbol) and live deposit/withdraw queue ordering.
 - Added price history endpoint and sparkline fed by indexer snapshots.
 - Refined header navigation + wallet status and enriched deposit/withdraw panel with balances, allowance, and previews.
+- Added tx toast system for pending/success/error states with explorer links.
+- Added onchain allocation summary donut with live queue ordering on the dashboard.
+- Added wrong-network gating + tx toasts for admin actions.
 
 ### DevOps
 - Added GitHub Actions CI for Foundry tests and TS lint/typechecks.
@@ -78,7 +81,8 @@
 - High-water mark starts at 1e18, updates on first deposit and on harvest.
 
 ## Open TODOs
-- Populate `docs/STRATEGY_UNIVERSE.md` with Base strategy addresses + due diligence.
 - Confirm Base Sepolia USDC address for deployment script.
-- UI implementation in `apps/web` (dashboard, vault, strategies, admin).
+- Integrate live strategies on testnet and set caps/queues.
 - Indexer hardening: reorg handling + confirmations tuning if needed.
+- Add historical allocation chart + richer share price chart.
+- Add admin UX for executing scheduled timelock actions.

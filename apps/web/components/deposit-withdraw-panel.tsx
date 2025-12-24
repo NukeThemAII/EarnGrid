@@ -8,18 +8,22 @@ import { blendedVaultAbi } from "@blended-vault/sdk";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { useTxToast } from "@/components/tx-toast";
 import { formatNumber, formatUsd } from "@/lib/format";
-import { usdcAddress, usdcDecimals, vaultAddress } from "@/lib/chain";
+import { chain, chainId, usdcAddress, usdcDecimals, vaultAddress } from "@/lib/chain";
 
 export function DepositWithdrawPanel() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain: activeChain } = useAccount();
   const [amount, setAmount] = React.useState("");
   const { writeContractAsync, isPending } = useWriteContract();
+  const { trackTx } = useTxToast();
 
   const parsedAmount = safeParseUnits(amount, usdcDecimals);
   const safeVaultAddress = (vaultAddress || "0x0000000000000000000000000000000000000000") as `0x${string}`;
   const safeUsdcAddress = (usdcAddress || "0x0000000000000000000000000000000000000000") as `0x${string}`;
   const hasConfig = Boolean(address && usdcAddress && vaultAddress);
+  const isWrongNetwork = isConnected && activeChain ? activeChain.id !== chainId : false;
 
   const { data: balance } = useReadContract({
     abi: erc20Abi,
@@ -84,36 +88,48 @@ export function DepositWithdrawPanel() {
     if (!address || !usdcAddress || !vaultAddress || parsedAmount === 0n) {
       return;
     }
-    await writeContractAsync({
-      abi: erc20Abi,
-      address: usdcAddress,
-      functionName: "approve",
-      args: [vaultAddress, parsedAmount],
-    });
+    await trackTx(
+      () =>
+        writeContractAsync({
+          abi: erc20Abi,
+          address: usdcAddress,
+          functionName: "approve",
+          args: [vaultAddress, parsedAmount],
+        }),
+      { title: "Approve USDC" }
+    );
   }
 
   async function deposit() {
     if (!address || !vaultAddress || parsedAmount === 0n) {
       return;
     }
-    await writeContractAsync({
-      abi: blendedVaultAbi,
-      address: vaultAddress,
-      functionName: "deposit",
-      args: [parsedAmount, address],
-    });
+    await trackTx(
+      () =>
+        writeContractAsync({
+          abi: blendedVaultAbi,
+          address: vaultAddress,
+          functionName: "deposit",
+          args: [parsedAmount, address],
+        }),
+      { title: "Deposit USDC" }
+    );
   }
 
   async function withdraw() {
     if (!address || !vaultAddress || parsedAmount === 0n) {
       return;
     }
-    await writeContractAsync({
-      abi: blendedVaultAbi,
-      address: vaultAddress,
-      functionName: "withdraw",
-      args: [parsedAmount, address, address],
-    });
+    await trackTx(
+      () =>
+        writeContractAsync({
+          abi: blendedVaultAbi,
+          address: vaultAddress,
+          functionName: "withdraw",
+          args: [parsedAmount, address, address],
+        }),
+      { title: "Withdraw USDC" }
+    );
   }
 
   return (
@@ -122,6 +138,22 @@ export function DepositWithdrawPanel() {
         <CardTitle className="text-sm text-muted">Deposit / Withdraw</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {isWrongNetwork ? (
+          <div className="flex items-center justify-between rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+            <span>Wrong network connected.</span>
+            <Badge variant="default">Switch to {chain.name}</Badge>
+          </div>
+        ) : null}
+        {!isConnected ? (
+          <div className="rounded-lg border border-border/70 bg-surfaceElevated/60 px-3 py-2 text-xs text-muted">
+            Connect a wallet to deposit or withdraw.
+          </div>
+        ) : null}
+        {!vaultAddress ? (
+          <div className="rounded-lg border border-border/70 bg-surfaceElevated/60 px-3 py-2 text-xs text-muted">
+            Set `NEXT_PUBLIC_VAULT_ADDRESS` to enable vault actions.
+          </div>
+        ) : null}
         <div className="space-y-2">
           <div className="relative">
             <Input
@@ -157,20 +189,34 @@ export function DepositWithdrawPanel() {
           <Button
             variant="outline"
             onClick={approve}
-            disabled={!isConnected || isPending || parsedAmount === 0n || !hasConfig || (!needsApproval && allowanceKnown)}
+            disabled={
+              !isConnected ||
+              isWrongNetwork ||
+              isPending ||
+              parsedAmount === 0n ||
+              !hasConfig ||
+              (!needsApproval && allowanceKnown)
+            }
           >
             {needsApproval ? "Approve USDC" : "Approved"}
           </Button>
           <Button
             onClick={deposit}
-            disabled={!isConnected || isPending || needsApproval || isDepositPaused || !hasConfig}
+            disabled={
+              !isConnected ||
+              isWrongNetwork ||
+              isPending ||
+              needsApproval ||
+              isDepositPaused ||
+              !hasConfig
+            }
           >
             Deposit
           </Button>
           <Button
             variant="outline"
             onClick={withdraw}
-            disabled={!isConnected || isPending || isWithdrawPaused || !hasConfig}
+            disabled={!isConnected || isWrongNetwork || isPending || isWithdrawPaused || !hasConfig}
           >
             Withdraw
           </Button>
