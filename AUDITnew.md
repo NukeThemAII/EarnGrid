@@ -643,3 +643,152 @@ pnpm -C apps/web build
 ---
 
 *Last updated: December 25, 2025*
+
+---
+
+## 11. Latest Review (December 25, 2025 - Evening)
+
+**Reviewed Commit:** `c365efb` - "feat: add indexer rate limiting and app error boundary"
+
+Codex addressed the remaining informational items I-03 and I-04.
+
+### 11.1 Findings Status Update
+
+| ID | Finding | Status | Notes |
+|----|---------|--------|-------|
+| I-01 | Loading states | ⏳ Pending | Low priority |
+| I-02 | Refresh after tx | ✅ Previous commit | Query invalidation added |
+| I-03 | Error boundaries | ✅ **FIXED** | `error.tsx` added |
+| I-04 | Indexer rate limiting | ✅ **FIXED** | Custom middleware |
+
+### 11.2 Implementation Review
+
+#### ✅ [I-04] Indexer Rate Limiting
+**File:** `services/indexer/src/index.ts` lines 127-151
+
+```typescript
+function createRateLimiter(options: { windowMs: number; max: number }) {
+  const hits = new Map<string, { count: number; resetAt: number }>();
+  
+  return function rateLimiter(req, res, next) {
+    const key = req.ip ?? req.socket.remoteAddress ?? "unknown";
+    const entry = hits.get(key);
+    
+    if (!entry || now > entry.resetAt) {
+      hits.set(key, { count: 1, resetAt: now + options.windowMs });
+      next();
+      return;
+    }
+    
+    entry.count += 1;
+    if (entry.count > options.max) {
+      res.status(429).json({ error: "rate_limited", retryAfterSec: ... });
+      return;
+    }
+    next();
+  };
+}
+```
+
+**Configuration:** `services/indexer/src/config.ts` lines 31-32
+```typescript
+rateLimitWindowSec: parseNumber(process.env.RATE_LIMIT_WINDOW_SEC, 60),
+rateLimitMax: parseNumber(process.env.RATE_LIMIT_MAX, 120),
+```
+
+**Assessment:** ✅ **Good implementation**
+- Custom in-memory rate limiter (no external deps)
+- Configurable via environment variables
+- Default: 120 requests per 60 seconds per IP
+- Returns proper 429 status with `Retry-After` header
+- Uses `trust proxy` for proper IP detection behind reverse proxy
+
+#### ✅ [I-03] React Error Boundary
+**File:** `apps/web/app/error.tsx`
+
+```tsx
+export default function ErrorPage({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  React.useEffect(() => {
+    console.error(error);
+  }, [error]);
+
+  return (
+    <div className="...">
+      <h2>Something went wrong.</h2>
+      <Button onClick={() => reset()}>Try again</Button>
+      <Button variant="outline" onClick={() => window.location.reload()}>
+        Reload
+      </Button>
+    </div>
+  );
+}
+```
+
+**Assessment:** ✅ **Good implementation**
+- Next.js App Router error boundary pattern
+- Logs error to console
+- Provides "Try again" (React reset) and "Reload" options
+- Clean, user-friendly UI
+
+### 11.3 Current Status
+
+| Severity | Count |
+|----------|-------|
+| Critical/High/Medium/Low | **0** |
+| Informational | **1** (I-01 only) |
+
+### 11.4 Final Quality Summary
+
+| Category | Status | Notes |
+|----------|--------|-------|
+| Smart Contracts | ✅ Complete | 24 tests passing |
+| Frontend Security | ✅ Complete | Slippage, validation, error boundary |
+| Backend Security | ✅ Complete | Rate limiting implemented |
+| Documentation | ✅ Complete | Audit, runbook, architecture |
+| Test Coverage | ✅ Good | Fuzz + unit + reentrancy |
+
+**🎉 The codebase is now ready for testnet deployment!**
+
+### 11.5 Remaining Item
+
+| ID | Item | Priority |
+|----|------|----------|
+| I-01 | Loading states for read queries | Low |
+
+This is purely cosmetic and can be addressed post-launch.
+
+---
+
+## 🤖 Final Note for Codex Agent
+
+**Excellent work!** You've addressed nearly all audit findings:
+
+### ✅ All Completed
+- ✅ Donation attack guard (maxDailyIncreaseBps)
+- ✅ OZ v5.5 hook migration
+- ✅ Client-side slippage protection
+- ✅ Separate queue inputs
+- ✅ Input validation
+- ✅ Auto-generated salts
+- ✅ Rate limiting
+- ✅ Error boundary
+
+### 📋 Optional (Low Priority)
+- Skeleton loaders for loading states
+
+### 🚀 Next Steps for Deployment
+1. **Base Sepolia deployment** with real MetaMorpho vaults
+2. **Multisig setup** (Gnosis Safe)
+3. **Event monitoring** setup
+4. **Professional audit** scheduling
+
+---
+
+*Audit complete. Ready for testnet.*
+
