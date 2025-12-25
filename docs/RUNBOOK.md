@@ -1,4 +1,4 @@
-# Runbook — MetaYield v0.1
+# Runbook - MetaYield v0.1
 
 ## Purpose
 Operational guide for the USDC Blended Vault (MetaYield) covering deployment, configuration, and incident response.
@@ -35,6 +35,8 @@ Operational guide for the USDC Blended Vault (MetaYield) covering deployment, co
 - `SAMPLE_INTERVAL_SEC`
 - `FINALITY_BLOCKS`
 - `MAX_BLOCK_RANGE`
+- `RATE_LIMIT_WINDOW_SEC`
+- `RATE_LIMIT_MAX`
 - `PORT`
 
 ### Web

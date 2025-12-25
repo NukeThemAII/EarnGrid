@@ -10,6 +10,8 @@ export type IndexerConfig = {
   finalityBlocks: number;
   port: number;
   maxBlockRange: number;
+  rateLimitWindowSec: number;
+  rateLimitMax: number;
 };
 
 export function loadConfig(): IndexerConfig {
@@ -26,6 +28,8 @@ export function loadConfig(): IndexerConfig {
     finalityBlocks: parseNumber(process.env.FINALITY_BLOCKS, 2),
     port: parseNumber(process.env.PORT, 3001),
     maxBlockRange: parseNumber(process.env.MAX_BLOCK_RANGE, 2_000),
+    rateLimitWindowSec: parseNumber(process.env.RATE_LIMIT_WINDOW_SEC, 60),
+    rateLimitMax: parseNumber(process.env.RATE_LIMIT_MAX, 120),
   };
 }
 

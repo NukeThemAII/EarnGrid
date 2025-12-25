@@ -63,6 +63,12 @@
 - Added wrong-network gating + tx toasts for admin actions.
 - Added client-side slippage check and separate deposit/withdraw queue controls in the admin panel.
 
+## 2025-12-25
+
+- Added indexer rate limiting configuration and middleware guard.
+- Added a global Next.js error boundary for UI crashes.
+- Updated README/RUNBOOK env lists and added a post-audit note in `AUDITnew.md`.
+
 ### DevOps
 - Added GitHub Actions CI for Foundry tests and TS lint/typechecks.
 - Expanded `docs/RUNBOOK.md` with deployment and ops guidance.

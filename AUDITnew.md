@@ -399,6 +399,19 @@ The MetaYield codebase has improved significantly since the initial audit:
 | `f922b37` | fix: repair fee balance test |
 | `8dd12fe` | feat: add harvest guard and audit-driven fixes |
 
+---
+
+## 10. Maintainer Note (Post-Audit)
+
+The following audit items were addressed after this report:
+- M-01: Added client-side slippage checks and tolerance input in the deposit/withdraw panel.
+- L-01: Split deposit and withdraw queue inputs in the admin panel.
+- L-02: Added validation for cap input and strategy address format.
+- L-03: Added unique salt generation for scheduled timelock actions.
+- I-02: Added query invalidation after successful transactions.
+
+See commit `e48741b` and later for the follow-up fixes.
+
 ### B. Files Changed Since Last Audit
 
 ```

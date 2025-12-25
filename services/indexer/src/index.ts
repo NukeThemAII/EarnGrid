@@ -25,6 +25,13 @@ await indexer.init();
 indexer.start();
 
 const app = express();
+app.set("trust proxy", 1);
+app.use(
+  createRateLimiter({
+    windowMs: config.rateLimitWindowSec * 1000,
+    max: config.rateLimitMax,
+  })
+);
 
 app.get("/api/health", async (_req, res) => {
   res.json({ ok: true });
@@ -116,6 +123,32 @@ app.get("/api/price-history", async (req, res) => {
 app.listen(config.port, () => {
   console.log(`Indexer API listening on :${config.port}`);
 });
+
+function createRateLimiter(options: { windowMs: number; max: number }) {
+  const hits = new Map<string, { count: number; resetAt: number }>();
+
+  return function rateLimiter(req: express.Request, res: express.Response, next: express.NextFunction) {
+    const now = Date.now();
+    const key = req.ip ?? req.socket.remoteAddress ?? "unknown";
+    const entry = hits.get(key);
+
+    if (!entry || now > entry.resetAt) {
+      hits.set(key, { count: 1, resetAt: now + options.windowMs });
+      next();
+      return;
+    }
+
+    entry.count += 1;
+    if (entry.count > options.max) {
+      const retryAfter = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
+      res.setHeader("Retry-After", String(retryAfter));
+      res.status(429).json({ error: "rate_limited", retryAfterSec: retryAfter });
+      return;
+    }
+
+    next();
+  };
+}
 
 function computeApy(startPrice: string, endPrice: string, days: number): number {
   const start = Number(startPrice);
