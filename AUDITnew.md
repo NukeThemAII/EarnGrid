@@ -433,3 +433,200 @@ packages/contracts/test/BlendedVaultReentrancy.t.sol
 ---
 
 > ⚠️ **Disclaimer:** This audit is informational and does not guarantee security. Professional auditing by established firms is strongly recommended before mainnet deployment.
+
+---
+
+## 10. Post-Audit Code Review (December 25, 2025)
+
+**Reviewed Commit:** `e48741b` - "feat(web): add client slippage checks and admin validation"
+
+Following the v2 audit, Codex agent implemented fixes for all remaining Medium and Low severity findings. This section documents the changes and their quality.
+
+### 10.1 Findings Status Update
+
+| ID | Finding | Status | Notes |
+|----|---------|--------|-------|
+| M-01 | Frontend slippage protection | ✅ **FIXED** | Client-side check implemented |
+| L-01 | Same queue for deposit/withdraw | ✅ **FIXED** | Separate inputs now |
+| L-02 | Cap input validation | ✅ **FIXED** | Address + BigInt validation |
+| L-03 | Salt reuse risk | ✅ **FIXED** | Auto-generated unique salts |
+
+### 10.2 Implementation Review
+
+#### ✅ [M-01] Client-Side Slippage Protection
+**File:** `deposit-withdraw-panel.tsx` lines 148-189
+
+```tsx
+async function checkSlippage(mode: "deposit" | "withdraw"): Promise<boolean> {
+  if (slippageBps === null) {
+    setLocalNotice("Invalid slippage tolerance. Use a positive number under 100%.");
+    return false;
+  }
+  const latest = await publicClient.readContract({
+    abi: blendedVaultAbi,
+    address: vaultAddress,
+    functionName: mode === "deposit" ? "previewDeposit" : "previewWithdraw",
+    args: [parsedAmount],
+  });
+  if (mode === "deposit") {
+    const minShares = (baseline * (10_000n - slippageBps)) / 10_000n;
+    if (latest < minShares) {
+      setLocalNotice("Slippage check failed. Share output moved below tolerance.");
+      return false;
+    }
+  } else {
+    const maxShares = (baseline * (10_000n + slippageBps)) / 10_000n;
+    if (latest > maxShares) {
+      setLocalNotice("Slippage check failed. Shares required moved above tolerance.");
+      return false;
+    }
+  }
+  return true;
+}
+```
+
+**Assessment:** ✅ **Good implementation**
+- Fetches fresh quote before transaction
+- Calculates tolerance in BPS correctly
+- Shows clear error messages
+- UI includes slippage input with validation
+- Note correctly states this is client-side only (line 262)
+
+#### ✅ [L-01] Separate Queue Inputs
+**File:** `admin-actions.tsx` lines 33-34, 134-182
+
+```tsx
+const [depositQueueInput, setDepositQueueInput] = React.useState("");
+const [withdrawQueueInput, setWithdrawQueueInput] = React.useState("");
+
+async function updateDepositQueue() { ... }
+async function updateWithdrawQueue() { ... }
+```
+
+**Assessment:** ✅ **Fixed correctly**
+- Now has separate inputs for deposit and withdraw queues
+- Each queue has its own update button
+- Uses `parseQueueInput()` helper for validation
+
+#### ✅ [L-02] Address & Input Validation
+**File:** `admin-actions.tsx` lines 184-216, 315-331
+
+```tsx
+if (!isAddress(strategy)) {
+  setNotice("Invalid strategy address.");
+  return;
+}
+let capValue: bigint;
+try {
+  capValue = BigInt(cap);
+} catch {
+  setNotice("Cap must be a valid integer in USDC decimals.");
+  return;
+}
+
+function parseQueueInput(value: string): { entries: `0x${string}`[]; error?: string } {
+  const invalid = entries.find((entry) => !isAddress(entry));
+  if (invalid) {
+    return { entries: [], error: `Invalid address: ${invalid}` };
+  }
+  return { entries: entries as `0x${string}`[] };
+}
+```
+
+**Assessment:** ✅ **Good validation**
+- Uses viem's `isAddress()` for checksummed address validation
+- Wraps `BigInt()` in try/catch
+- Returns user-friendly error messages
+- Validates queue entries before transaction
+
+#### ✅ [L-03] Auto-Generated Unique Salts
+**File:** `admin-actions.tsx` lines 36, 215, 333-338
+
+```tsx
+const [salt, setSalt] = React.useState(() => createSalt());
+
+// After successful schedule:
+setSalt(createSalt());
+
+function createSalt(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `salt-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+```
+
+**Assessment:** ✅ **Properly implemented**
+- Uses crypto.randomUUID() when available
+- Falls back to timestamp + random for older browsers
+- Auto-regenerates after each schedule action
+
+### 10.3 Code Quality Assessment
+
+| Aspect | Rating | Notes |
+|--------|--------|-------|
+| Correctness | ✅ Good | Logic is sound |
+| Error Handling | ✅ Good | User-friendly messages |
+| TypeScript | ✅ Good | Proper types used |
+| Security | ✅ Good | Input validation |
+| UX | ✅ Good | Clear feedback |
+
+### 10.4 Remaining Items (Informational Only)
+
+These are now lower priority and can be addressed in future iterations:
+
+- [ ] I-01: Loading states for read queries
+- [ ] I-02: Refresh after transactions
+- [ ] I-03: Error boundaries
+- [ ] I-04: Indexer rate limiting
+
+### 10.5 Final Assessment
+
+**Codex successfully addressed all Medium and Low severity findings.**
+
+| Severity | v2 Audit | Post-Review |
+|----------|----------|-------------|
+| Medium | 1 | 0 ✅ |
+| Low | 3 | 0 ✅ |
+| Informational | 4 | 4 (acceptable) |
+
+**The frontend is now production-quality for testnet deployment.**
+
+---
+
+## 🤖 Note for Codex Agent
+
+Great work addressing all the findings! Here are clues for next steps:
+
+### ✅ Completed
+- Client-side slippage protection
+- Separate deposit/withdraw queue inputs  
+- Address validation with `isAddress()`
+- Auto-generated unique salts
+- Input validation with error messages
+
+### 📋 Remaining TODOs (Low Priority)
+1. **Loading states** - Add skeleton loaders while `useReadContract` is loading
+2. **Data refresh** - Call `queryClient.invalidateQueries()` after successful tx
+3. **Error boundaries** - Add React error boundary wrapper
+4. **Indexer rate limiting** - Add express-rate-limit middleware
+
+### 🎯 Next Priorities
+1. **Deploy to Base Sepolia** - Test with real MetaMorpho vaults
+2. **Multisig setup** - Use Gnosis Safe for owner role
+3. **Event monitoring** - Set up alerts for vault events
+4. **Admin UX** - Add UI for executing scheduled timelock actions (from LOG.md TODO)
+
+### 📊 Test Commands
+```bash
+# Contracts
+PATH="$HOME/.foundry/bin:$PATH" pnpm -C packages/contracts test
+
+# Frontend
+pnpm -C apps/web lint
+pnpm -C apps/web build
+```
+
+---
+
+*Last updated: December 25, 2025*
