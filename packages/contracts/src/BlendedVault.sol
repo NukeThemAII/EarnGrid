@@ -21,6 +21,7 @@ contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
     error InvalidBps();
     error InvalidCap();
     error InvalidQueueStrategy();
+    error InvalidSweepToken();
     error InvalidTier();
     error InvalidTimelockDelay();
     error MinInitialDeposit();
@@ -605,6 +606,9 @@ contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
     function sweepNonUSDC(IERC20 token, address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (address(token) == address(asset())) {
             revert InvalidAsset();
+        }
+        if (strategies[address(token)].registered) {
+            revert InvalidSweepToken();
         }
         token.safeTransfer(to, token.balanceOf(address(this)));
     }

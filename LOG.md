@@ -69,6 +69,10 @@
 - Added a global Next.js error boundary for UI crashes.
 - Updated README/RUNBOOK env lists and added a post-audit note in `AUDITnew.md`.
 
+## 2025-12-26
+
+- Blocked admin sweep of registered strategy share tokens and added test coverage.
+
 ### DevOps
 - Added GitHub Actions CI for Foundry tests and TS lint/typechecks.
 - Expanded `docs/RUNBOOK.md` with deployment and ops guidance.

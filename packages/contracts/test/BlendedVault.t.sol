@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 
 import {BlendedVault} from "../src/BlendedVault.sol";
 import {BlendedVaultBaseTest} from "./BlendedVaultBase.t.sol";
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 contract BlendedVaultTest is BlendedVaultBaseTest {
     function testDepositAllocatesByCap() public {
@@ -133,5 +134,13 @@ contract BlendedVaultTest is BlendedVaultBaseTest {
         vm.prank(allocator);
         vm.expectRevert(BlendedVault.TierLimitExceeded.selector);
         vault.rebalance(withdrawStrategies, withdrawAmounts, depositStrategies, depositAmounts);
+    }
+
+    function testSweepNonUsdcBlocksStrategyShares() public {
+        _deposit(user, 100 * USDC);
+
+        vm.prank(owner);
+        vm.expectRevert(BlendedVault.InvalidSweepToken.selector);
+        vault.sweepNonUSDC(IERC20(address(stratA)), owner);
     }
 }
