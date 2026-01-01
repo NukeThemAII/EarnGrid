@@ -13,8 +13,16 @@ forge test
 ### Latest run
 
 - Date: 2026-01-01
-- Command: `forge test`
+- Command: `cd packages/contracts && forge test`
 - Result: 26 passed, 0 failed, 0 skipped
+
+### What is tested
+
+- `BlendedVault.t.sol`: deposit/withdraw flows, caps/tiers, queue order, pauses, role checks, sweep protection.
+- `BlendedVaultFees.t.sol`: harvest HWM accounting, fee minting, harvest cadence guards, loss handling.
+- `BlendedVaultFuzz.t.sol`: monotonic share/asset conversions, first-deposit protections.
+- `BlendedVaultTimelock.t.sol`: timelock required for risk-increasing changes, including timelock delay reductions.
+- `BlendedVaultReentrancy.t.sol`: reentrancy guard against malicious strategy callbacks.
 
 ### Test Files
 

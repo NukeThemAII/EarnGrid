@@ -11,8 +11,14 @@ Assumptions:
 
 ```bash
 corepack enable
-corepack pnpm install
+pnpm install
 git submodule update --init --recursive
+```
+
+Optional sanity check:
+
+```bash
+cd packages/contracts && forge test
 ```
 
 ## 2) Update environment file for deployment
@@ -21,6 +27,8 @@ Template files are already created:
 - `.env.mainnet`
 - `services/indexer/.env`
 - `apps/web/.env.local`
+
+Note: these files are gitignored and will not be committed. Create/update them locally.
 
 Edit them with your real values before deploying.
 
@@ -153,7 +161,7 @@ EOF
 Run the indexer:
 
 ```bash
-corepack pnpm -C services/indexer dev
+pnpm -C services/indexer dev
 ```
 
 ## 7) Start the web app
@@ -174,7 +182,7 @@ EOF
 Run the app:
 
 ```bash
-corepack pnpm -C apps/web dev
+pnpm -C apps/web dev
 ```
 
 ## 8) Quick sanity checks
@@ -189,3 +197,23 @@ cast call --rpc-url "$BASE_RPC_URL" "$VAULT_ADDRESS" "pausedDeposits()(bool)"
 Notes:
 - First deposit must be >= MIN_INITIAL_DEPOSIT (default 1 USDC).
 - Withdrawals revert if strategies do not have liquidity.
+
+## 9) Timelock delay changes (optional)
+
+Increasing the timelock delay can be done directly. Decreasing the delay must be scheduled and executed after the current delay:
+
+```bash
+export NEW_TIMELOCK_DELAY=43200
+export TIMELOCK_SALT=$(cast keccak "TIMELOCK_DELAY")
+
+cast send --rpc-url "$BASE_RPC_URL" --private-key "$DEPLOYER_KEY" \
+  "$VAULT_ADDRESS" \
+  "scheduleTimelockDelay(uint256,bytes32)" \
+  "$NEW_TIMELOCK_DELAY" "$TIMELOCK_SALT"
+
+# Wait at least the current timelock delay, then:
+cast send --rpc-url "$BASE_RPC_URL" --private-key "$DEPLOYER_KEY" \
+  "$VAULT_ADDRESS" \
+  "executeTimelockDelay(uint256,bytes32)" \
+  "$NEW_TIMELOCK_DELAY" "$TIMELOCK_SALT"
+```
