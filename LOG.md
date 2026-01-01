@@ -91,9 +91,30 @@
 - Deposits auto-allocate to the deposit queue while maintaining `idleLiquidityBps`.
 - High-water mark starts at 1e18, updates on first deposit and on harvest.
 
+## 2026-01-01
+
+### Rebrand
+- Renamed project from MetaYield to **EarnGrid** for domain earngrid.xyz.
+- Updated all READMEs, audits, docs, UI components with new branding.
+- Migrated repository to `NukeThemAII/EarnGrid`.
+
+### Security Fixes
+- **HIGH:** Added `_safePreviewRedeem()` with try/catch to prevent reverting strategies from DOS'ing the vault.
+- **MEDIUM:** Made `maxWithdraw`/`maxRedeem` liquidity-aware per ERC-4626 spec.
+- **LOW:** Fixed indexer startBlock event indexing (changed to `startBlock - 1`).
+- **LOW:** Fixed indexer multicall fragility (`allowFailure: true` with filtering).
+
+### Repo Cleanup
+- Deleted old/redundant files: `AUDITg.md`, `AUDITnew.md`, `AUDIT_NOTES.md`, `TESTS1.md`, `TESTag.md`, `TESTcd.md`, `READMEcl.md`, `READMEg3.md`.
+- Consolidated into single `AUDIT.md` v1.0.
+
+### New Functions Added
+- `_safePreviewRedeem(address strategy, uint256 shares)` - try/catch wrapper for strategy calls.
+- `_availableLiquidity()` - calculates real liquid assets for withdrawals.
+
 ## Open TODOs
 - Confirm Base Sepolia USDC address for deployment script.
 - Integrate live strategies on testnet and set caps/queues.
-- Indexer hardening: reorg handling + confirmations tuning if needed.
+- Professional security audit before mainnet.
 - Add historical allocation chart + richer share price chart.
 - Add admin UX for executing scheduled timelock actions.

@@ -1,28 +1,44 @@
-# Tests & Verification
+# Test Suite
 
-## Contracts (Foundry)
+## Contract Tests (Foundry)
+
 ```bash
-git submodule update --init --recursive
 pnpm -C packages/contracts test
 ```
 
-## SDK (TypeScript)
+### Test Files
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `BlendedVault.t.sol` | 9 | Core flows |
+| `BlendedVaultFees.t.sol` | 6 | Fee logic |
+| `BlendedVaultFuzz.t.sol` | 4 | Fuzz/invariants |
+| `BlendedVaultTimelock.t.sol` | 4 | Timelock |
+| `BlendedVaultReentrancy.t.sol` | 1 | Reentrancy |
+| **Total** | **24** | |
+
+### Run with verbosity
+
 ```bash
-pnpm -C packages/sdk lint
-pnpm -C packages/sdk build
+pnpm -C packages/contracts test -vvv
 ```
 
-## Indexer (TypeScript)
+### Run specific test
+
 ```bash
-pnpm -C services/indexer lint
-pnpm -C services/indexer build
+pnpm -C packages/contracts test --match-test testHarvestMintsFeeShares
 ```
 
-## Web (Next.js)
+## Indexer Smoke Test
+
 ```bash
-pnpm -C apps/web lint
-pnpm -C apps/web build
+pnpm -C services/indexer dev
+# Visit http://localhost:3001/api/health
 ```
 
-## CI
-GitHub Actions runs Foundry tests plus TS lint/typecheck for SDK, indexer, and web.
+## Frontend Dev
+
+```bash
+pnpm -C apps/web dev
+# Visit http://localhost:3000
+```
