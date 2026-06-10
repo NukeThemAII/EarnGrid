@@ -5,6 +5,7 @@ import { loadConfig } from "./config.js";
 import { createDatabase, initializeSchema } from "./db.js";
 import { VaultIndexer } from "./indexer.js";
 import {
+  getAllocationHistory,
   getLatestAllocations,
   getLatestSnapshot,
   getRecentSnapshots,
@@ -70,6 +71,26 @@ app.get("/api/allocations", async (_req, res) => {
       capAssets: row.cap_assets,
       enabled: row.enabled === 1,
       isSynchronous: row.is_synchronous === 1,
+    })),
+  });
+});
+
+app.get("/api/allocations/history", async (req, res) => {
+  const limit = Math.min(Math.max(Number(req.query.limit ?? 48), 1), 720);
+  const snapshots = await getAllocationHistory(db, limit);
+
+  res.json({
+    snapshots: snapshots.map((snapshot) => ({
+      timestamp: snapshot.timestamp,
+      blockNumber: snapshot.blockNumber,
+      allocations: snapshot.allocations.map((row) => ({
+        strategy: row.strategy,
+        assets: row.assets,
+        tier: row.tier,
+        capAssets: row.cap_assets,
+        enabled: row.enabled === 1,
+        isSynchronous: row.is_synchronous === 1,
+      })),
     })),
   });
 });

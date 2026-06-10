@@ -106,6 +106,39 @@ export async function getLatestAllocations(
   };
 }
 
+export async function getAllocationHistory(
+  db: Kysely<DB>,
+  limit: number = 48
+): Promise<{ timestamp: number; blockNumber: number; allocations: AllocationSnapshotRow[] }[]> {
+  const rows = await db
+    .selectFrom("allocation_snapshots")
+    .select(["timestamp", "block_number"])
+    .groupBy(["timestamp", "block_number"])
+    .orderBy("timestamp", "desc")
+    .limit(limit)
+    .execute();
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const snapshots: { timestamp: number; blockNumber: number; allocations: AllocationSnapshotRow[] }[] = [];
+  for (const row of rows) {
+    const allocations = await db
+      .selectFrom("allocation_snapshots")
+      .selectAll()
+      .where("timestamp", "=", row.timestamp)
+      .execute();
+    snapshots.push({
+      timestamp: row.timestamp,
+      blockNumber: row.block_number,
+      allocations,
+    });
+  }
+
+  return snapshots;
+}
+
 export async function getRecentSnapshots(
   db: Kysely<DB>,
   limit: number

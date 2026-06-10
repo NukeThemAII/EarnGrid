@@ -18,6 +18,8 @@ contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
     error HarvestIncreaseTooHigh();
     error HarvestTooSoon();
     error InvalidAsset();
+    error MaxRebalanceExceeded();
+    error RebalanceCooldownActive();
     error InvalidBps();
     error InvalidCap();
     error InvalidQueueStrategy();
@@ -56,6 +58,8 @@ contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
     bytes32 private constant ACTION_MAX_DAILY_INCREASE = keccak256("MAX_DAILY_INCREASE");
     bytes32 private constant ACTION_TIMELOCK_DELAY = keccak256("TIMELOCK_DELAY");
     bytes32 private constant ACTION_TIER_LIMITS = keccak256("TIER_LIMITS");
+    bytes32 private constant ACTION_REBALANCE_COOLDOWN = keccak256("REBALANCE_COOLDOWN");
+    bytes32 private constant ACTION_MAX_REBALANCE_AMOUNT = keccak256("MAX_REBALANCE_AMOUNT");
 
     struct StrategyConfig {
         bool registered;
@@ -81,6 +85,9 @@ contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
     uint256 public lastHarvestTimestamp;
     uint256 public minHarvestInterval;
     uint256 public maxDailyIncreaseBps;
+    uint256 public rebalanceCooldown;
+    uint256 public lastRebalanceTimestamp;
+    uint256 public maxRebalanceAmountBps;
 
     bool public pausedDeposits;
     bool public pausedWithdrawals;
@@ -109,6 +116,8 @@ contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
     event MinInitialDepositUpdated(uint256 oldMin, uint256 newMin);
     event MinHarvestIntervalUpdated(uint256 oldInterval, uint256 newInterval);
     event MaxDailyIncreaseBpsUpdated(uint256 oldBps, uint256 newBps);
+    event RebalanceCooldownUpdated(uint256 oldCooldown, uint256 newCooldown);
+    event MaxRebalanceAmountBpsUpdated(uint256 oldBps, uint256 newBps);
     event TimelockDelayUpdated(uint256 oldDelay, uint256 newDelay);
 
     constructor(
@@ -147,6 +156,8 @@ contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
         minHarvestInterval = minHarvestInterval_;
         timelockDelay = timelockDelay_;
         highWatermarkAssetsPerShare = 1e18;
+        rebalanceCooldown = 6 hours;
+        maxRebalanceAmountBps = 5000;
     }
 
     function supportsInterface(bytes4 interfaceId) public view override(AccessControl) returns (bool) {
@@ -534,6 +545,50 @@ contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
         _setTierMaxBps(newBps);
     }
 
+    function setRebalanceCooldown(uint256 newCooldown) external onlyCuratorOrOwner {
+        if (newCooldown > rebalanceCooldown) {
+            revert TimelockRequired();
+        }
+        _setRebalanceCooldown(newCooldown);
+    }
+
+    function scheduleRebalanceCooldown(uint256 newCooldown, bytes32 salt)
+        external
+        onlyCuratorOrOwner
+        returns (bytes32 id)
+    {
+        bytes memory data = abi.encode(newCooldown);
+        id = _scheduleChange(ACTION_REBALANCE_COOLDOWN, data, salt);
+    }
+
+    function executeRebalanceCooldown(uint256 newCooldown, bytes32 salt) external onlyCuratorOrOwner {
+        bytes memory data = abi.encode(newCooldown);
+        _consumeChange(ACTION_REBALANCE_COOLDOWN, data, salt);
+        _setRebalanceCooldown(newCooldown);
+    }
+
+    function setMaxRebalanceAmountBps(uint256 newBps) external onlyCuratorOrOwner {
+        if (newBps > maxRebalanceAmountBps) {
+            revert TimelockRequired();
+        }
+        _setMaxRebalanceAmountBps(newBps);
+    }
+
+    function scheduleMaxRebalanceAmount(uint256 newBps, bytes32 salt)
+        external
+        onlyCuratorOrOwner
+        returns (bytes32 id)
+    {
+        bytes memory data = abi.encode(newBps);
+        id = _scheduleChange(ACTION_MAX_REBALANCE_AMOUNT, data, salt);
+    }
+
+    function executeMaxRebalanceAmount(uint256 newBps, bytes32 salt) external onlyCuratorOrOwner {
+        bytes memory data = abi.encode(newBps);
+        _consumeChange(ACTION_MAX_REBALANCE_AMOUNT, data, salt);
+        _setMaxRebalanceAmountBps(newBps);
+    }
+
     function cancelScheduled(bytes32 id) external onlyCuratorOrOwner {
         if (scheduledAt[id] == 0) {
             revert NotScheduled();
@@ -555,6 +610,14 @@ contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
             revert InvalidQueueStrategy();
         }
 
+        if (block.timestamp < lastRebalanceTimestamp + rebalanceCooldown) {
+            revert RebalanceCooldownActive();
+        }
+
+        uint256 totalBefore = totalAssets();
+        uint256 maxMove = (totalBefore * maxRebalanceAmountBps) / MAX_BPS;
+        uint256 totalMoved;
+
         uint256[3] memory tierExposure = _currentTierExposure();
 
         for (uint256 i = 0; i < withdrawStrategies.length; i++) {
@@ -567,7 +630,11 @@ contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
             if (!config.registered) {
                 revert StrategyNotRegistered();
             }
+            if (totalMoved + amount > maxMove) {
+                revert MaxRebalanceExceeded();
+            }
             _withdrawFromStrategy(strategy, amount);
+            totalMoved += amount;
             if (amount <= tierExposure[config.tier]) {
                 tierExposure[config.tier] -= amount;
             } else {
@@ -581,9 +648,14 @@ contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
             if (amount == 0) {
                 continue;
             }
+            if (totalMoved + amount > maxMove) {
+                revert MaxRebalanceExceeded();
+            }
             _depositToStrategy(depositStrategies[i], amount, total, tierExposure);
+            totalMoved += amount;
         }
 
+        lastRebalanceTimestamp = block.timestamp;
         emit Rebalanced(withdrawStrategies, withdrawAmounts, depositStrategies, depositAmounts);
     }
 
@@ -847,6 +919,21 @@ contract BlendedVault is ERC4626, AccessControl, ReentrancyGuard {
         uint256 oldBps = maxDailyIncreaseBps;
         maxDailyIncreaseBps = newBps;
         emit MaxDailyIncreaseBpsUpdated(oldBps, newBps);
+    }
+
+    function _setRebalanceCooldown(uint256 newCooldown) internal {
+        uint256 oldCooldown = rebalanceCooldown;
+        rebalanceCooldown = newCooldown;
+        emit RebalanceCooldownUpdated(oldCooldown, newCooldown);
+    }
+
+    function _setMaxRebalanceAmountBps(uint256 newBps) internal {
+        if (newBps > MAX_BPS) {
+            revert InvalidBps();
+        }
+        uint256 oldBps = maxRebalanceAmountBps;
+        maxRebalanceAmountBps = newBps;
+        emit MaxRebalanceAmountBpsUpdated(oldBps, newBps);
     }
 
     function _scheduleChange(bytes32 action, bytes memory data, bytes32 salt)

@@ -112,6 +112,40 @@
 - `_safePreviewRedeem(address strategy, uint256 shares)` - try/catch wrapper for strategy calls.
 - `_availableLiquidity()` - calculates real liquid assets for withdrawals.
 
+## 2026-06-10
+
+### Contracts
+- **Rebalance safety constraints:**
+  - Added `rebalanceCooldown` (default 6h) — minimum time between rebalance() calls
+  - Added `maxRebalanceAmountBps` (default 50%) — max % of totalAssets moved per rebalance
+  - Both follow existing timelock pattern: decreases are immediate, increases require timelock
+  - New errors: `MaxRebalanceExceeded()`, `RebalanceCooldownActive()`
+  - New events: `RebalanceCooldownUpdated`, `MaxRebalanceAmountBpsUpdated`
+- **Invariant tests:**
+  - Added `BlendedVaultInvariants.t.sol` with handler-based Foundry invariant testing
+  - `invariant_totalAssets_always_covers_idle()` — totalAssets >= idle USDC balance
+  - `invariant_strategy_assets_plus_idle_equals_totalAssets()` — strategy + idle == totalAssets (2 wei tolerance)
+  - Runs 1024 sequences of 100 calls each against handler (102,400 total calls per invariant)
+- **foundry.toml:** Added [invariant] section with runs=1024, depth=100
+
+### DevOps
+- **pnpm-workspace.yaml:** Replaced deprecated `allowBuilds` with `onlyBuiltDependencies`
+- **Foundry upgraded** to forge 1.7.1 (latest stable)
+- **Added .env.example** files for contracts, indexer, and web app (all vars from RUNBOOK.md)
+
+### Indexer (Node/TS)
+- **Added `/api/allocations/history`** endpoint — returns last N distinct allocation snapshots with per-strategy breakdown
+  - Accepts optional `?limit=` (default 48, clamped [1,720])
+  - Groups allocation snapshots by timestamp + block_number
+  - Consistent with existing `/api/price-history` pattern
+
+### Infrastructure
+- **PostCSS config** at `apps/web/postcss.config.cjs` (already present, verified correct)
+
+### Test Results
+- **28 tests passing** (26 unit/integration/fuzz + 2 invariants with 102,400 calls each)
+- Invariants: 0 failures across all runs
+
 ## Open TODOs
 - Confirm Base Sepolia USDC address for deployment script.
 - Integrate live strategies on testnet and set caps/queues.
