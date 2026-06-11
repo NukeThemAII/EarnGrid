@@ -403,6 +403,12 @@ Tier 1 (preferred start):
 - Optional add: Spark USDC Vault (sparkUSDC) — 0x7BfA7C4f149E7415b73bdeDfe609237e29CBF34A
 
 Tier 2 (optional expansion):
+- Gauntlet USDC Frontier — 0x1deEfABEe758AAbdC29a542B24ca3b75aFD56765
+  - ~$1.05M TVL, 18 decimals, ERC-4626 verified
+  - Not yet in Morpho Blue subgraph; verify APY source before allowlisting
+- Steakhouse High Yield USDC — 0xbeeff7aE5E00Aae3Db302e4B0d8C883810a58100
+  - ~$29.5M TVL, 18 decimals, ERC-4626 verified
+  - Not yet in Morpho Blue subgraph; verify APY source before allowlisting
 - Seamless USDC Vault (smUSDC) — 0x616a4E1db48e22028f6bbf20444Cd3b8e3273738
 - Moonwell Flagship USDC (mwUSDC) — 0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca
 5) v0.1 initial caps & tiers (proposal)
