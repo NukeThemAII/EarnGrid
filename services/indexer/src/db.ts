@@ -75,6 +75,28 @@ export async function initializeSchema(db: DatabaseClient): Promise<void> {
     .addColumn("enabled", "integer", (col) => col.notNull())
     .addColumn("is_synchronous", "integer", (col) => col.notNull())
     .execute();
+
+  // Indexes for query performance
+  await db.schema
+    .createIndex("idx_snapshots_timestamp")
+    .ifNotExists()
+    .on("snapshots")
+    .column("timestamp")
+    .execute();
+
+  await db.schema
+    .createIndex("idx_allocation_snapshots_timestamp")
+    .ifNotExists()
+    .on("allocation_snapshots")
+    .column("timestamp")
+    .execute();
+
+  await db.schema
+    .createIndex("idx_events_block_number")
+    .ifNotExists()
+    .on("events")
+    .column("block_number")
+    .execute();
 }
 
 function isPostgresUrl(databaseUrl: string): boolean {

@@ -1,8 +1,15 @@
+import type { Metadata } from "next";
+
 import { DepositWithdrawPanel } from "@/components/deposit-withdraw-panel";
 import { OnchainMetrics } from "@/components/onchain-metrics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchApy, fetchTvl } from "@/lib/indexer";
 import { formatNumber, formatPercent, formatUsd } from "@/lib/format";
+
+export const metadata: Metadata = {
+  title: "Vault · EarnGrid",
+  description: "Deposit and withdraw USDC from the EarnGrid Blended Vault on Base.",
+};
 
 export default async function VaultPage() {
   const [apy, tvl] = await Promise.all([fetchApy(), fetchTvl()]);

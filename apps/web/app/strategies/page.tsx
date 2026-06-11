@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { OnchainStrategies } from "@/components/onchain-strategies";
 import { fetchAllocations } from "@/lib/indexer";
 import { formatUsd, shortenAddress } from "@/lib/format";
+
+export const metadata: Metadata = {
+  title: "Strategies · EarnGrid",
+  description: "Explore the EarnGrid strategy universe — risk tiers, caps, and allocations.",
+};
 
 export default async function StrategiesPage() {
   const allocations = await fetchAllocations();

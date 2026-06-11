@@ -10,21 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useTxToast } from "@/components/tx-toast";
-import { chain, chainId, vaultAddress } from "@/lib/chain";
+import { chain, chainId, vaultAddress, safeVaultAddress } from "@/lib/chain";
+import { accessControlAbi } from "@/lib/contracts";
 import { ALLOCATOR_ROLE, CURATOR_ROLE, DEFAULT_ADMIN_ROLE, GUARDIAN_ROLE } from "@/lib/roles";
-
-const accessControlAbi = [
-  {
-    type: "function",
-    name: "hasRole",
-    stateMutability: "view",
-    inputs: [
-      { name: "role", type: "bytes32" },
-      { name: "account", type: "address" },
-    ],
-    outputs: [{ type: "bool" }],
-  },
-] as const;
 
 export function AdminActions() {
   const { address, isConnected, chain: activeChain } = useAccount();
@@ -35,8 +23,6 @@ export function AdminActions() {
   const [capInput, setCapInput] = React.useState("");
   const [salt, setSalt] = React.useState(() => createSalt());
   const [notice, setNotice] = React.useState<string | null>(null);
-  const safeVaultAddress = (vaultAddress ||
-    "0x0000000000000000000000000000000000000000") as `0x${string}`;
 
   const { data: isAdmin } = useReadContract({
     abi: accessControlAbi,
@@ -263,10 +249,12 @@ export function AdminActions() {
         </div>
         <div className="space-y-2">
           <p className="text-xs text-muted">Deposit queue (comma or newline separated).</p>
-          <Input
+          <textarea
+            className="flex min-h-[80px] w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm text-text placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
             value={depositQueueInput}
             onChange={(event) => setDepositQueueInput(event.target.value)}
-            placeholder="0xStrategyA,0xStrategyB"
+            placeholder={"0xStrategyA\n0xStrategyB"}
+            rows={3}
           />
           <Button
             variant="outline"
@@ -278,10 +266,12 @@ export function AdminActions() {
         </div>
         <div className="space-y-2">
           <p className="text-xs text-muted">Withdraw queue (comma or newline separated).</p>
-          <Input
+          <textarea
+            className="flex min-h-[80px] w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm text-text placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
             value={withdrawQueueInput}
             onChange={(event) => setWithdrawQueueInput(event.target.value)}
-            placeholder="0xStrategyA,0xStrategyB"
+            placeholder={"0xStrategyA\n0xStrategyB"}
+            rows={3}
           />
           <Button
             variant="outline"

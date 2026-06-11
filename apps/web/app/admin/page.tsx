@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
+
 import { AdminActions } from "@/components/admin-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+export const metadata: Metadata = {
+  title: "Admin · EarnGrid",
+  description: "Role-gated admin panel for EarnGrid vault management.",
+};
 
 export default function AdminPage() {
   return (

@@ -8,6 +8,32 @@ export { blendedVaultAbi };
 export type { StrategyAllocation, StrategyConfig, UserPosition, VaultQueues, VaultState };
 
 const tierMaxIndices = [0n, 1n, 2n] as const;
+type StrategyConfigTuple = readonly [boolean, boolean, bigint, bigint, boolean];
+type VaultStateTuple = readonly [
+  Address,
+  bigint,
+  bigint,
+  bigint,
+  Address,
+  bigint,
+  boolean,
+  boolean,
+  bigint,
+  bigint,
+  bigint,
+  bigint,
+  number,
+];
+type RawContractCall = {
+  address: Address;
+  abi: typeof blendedVaultAbi;
+  functionName: string;
+  args?: readonly unknown[];
+};
+type RawPublicClient = {
+  multicall(args: { allowFailure: false; contracts: readonly RawContractCall[] }): Promise<unknown>;
+  readContract(args: RawContractCall): Promise<unknown>;
+};
 
 export async function getVaultState(
   client: PublicClient,
@@ -27,7 +53,7 @@ export async function getVaultState(
     minHarvestInterval,
     maxDailyIncreaseBps,
     decimals,
-  ] = await client.multicall({
+  ] = (await rawClient(client).multicall({
     allowFailure: false,
     contracts: [
       { address: vault, abi: blendedVaultAbi, functionName: "asset" },
@@ -48,17 +74,11 @@ export async function getVaultState(
       { address: vault, abi: blendedVaultAbi, functionName: "maxDailyIncreaseBps" },
       { address: vault, abi: blendedVaultAbi, functionName: "decimals" },
     ],
-  });
+  })) as VaultStateTuple;
 
-  const tierResults = await client.multicall({
-    allowFailure: false,
-    contracts: tierMaxIndices.map((index) => ({
-      address: vault,
-      abi: blendedVaultAbi,
-      functionName: "tierMaxBps",
-      args: [index],
-    })),
-  });
+  const tierResults = await Promise.all(
+    tierMaxIndices.map((index) => readTierMaxBps(client, vault, index)),
+  );
 
   return {
     asset,
@@ -86,26 +106,27 @@ export async function getVaultQueues(
   client: PublicClient,
   vault: Address,
 ): Promise<VaultQueues> {
-  const [depositQueue, withdrawQueue] = await client.multicall({
+  const [depositQueue, withdrawQueue] = (await rawClient(client).multicall({
     allowFailure: false,
     contracts: [
       { address: vault, abi: blendedVaultAbi, functionName: "getDepositQueue" },
       { address: vault, abi: blendedVaultAbi, functionName: "getWithdrawQueue" },
     ],
-  });
+  })) as readonly [readonly Address[], readonly Address[]];
 
-  return { depositQueue, withdrawQueue };
+  return { depositQueue: [...depositQueue], withdrawQueue: [...withdrawQueue] };
 }
 
 export async function getStrategies(
   client: PublicClient,
   vault: Address,
 ): Promise<Address[]> {
-  return client.readContract({
+  const strategies = (await rawClient(client).readContract({
     address: vault,
     abi: blendedVaultAbi,
     functionName: "getStrategies",
-  });
+  })) as readonly Address[];
+  return [...strategies];
 }
 
 export async function getStrategyConfigs(
@@ -117,7 +138,7 @@ export async function getStrategyConfigs(
     return [];
   }
 
-  const configs = await client.multicall({
+  const configs = (await rawClient(client).multicall({
     allowFailure: false,
     contracts: strategies.map((strategy) => ({
       address: vault,
@@ -125,7 +146,7 @@ export async function getStrategyConfigs(
       functionName: "strategies",
       args: [strategy],
     })),
-  });
+  })) as readonly StrategyConfigTuple[];
 
   return configs.map(parseStrategyConfig);
 }
@@ -139,26 +160,26 @@ export async function getAllocations(
     return [];
   }
 
-  const [configs, assets] = await Promise.all([
-    client.multicall({
-      allowFailure: false,
-      contracts: strategies.map((strategy) => ({
-        address: vault,
-        abi: blendedVaultAbi,
-        functionName: "strategies",
-        args: [strategy],
-      })),
-    }),
-    client.multicall({
-      allowFailure: false,
-      contracts: strategies.map((strategy) => ({
-        address: vault,
-        abi: blendedVaultAbi,
-        functionName: "strategyAssets",
-        args: [strategy],
-      })),
-    }),
-  ]);
+  const reader = rawClient(client);
+  const configsPromise = reader.multicall({
+    allowFailure: false,
+    contracts: strategies.map((strategy) => ({
+      address: vault,
+      abi: blendedVaultAbi,
+      functionName: "strategies",
+      args: [strategy],
+    })),
+  }) as Promise<readonly StrategyConfigTuple[]>;
+  const assetsPromise = reader.multicall({
+    allowFailure: false,
+    contracts: strategies.map((strategy) => ({
+      address: vault,
+      abi: blendedVaultAbi,
+      functionName: "strategyAssets",
+      args: [strategy],
+    })),
+  }) as Promise<readonly bigint[]>;
+  const [configs, assets] = await Promise.all([configsPromise, assetsPromise]);
 
   return strategies.map((strategy, index) => ({
     strategy,
@@ -172,14 +193,14 @@ export async function getUserPosition(
   vault: Address,
   user: Address,
 ): Promise<UserPosition> {
-  const [shares, maxWithdraw, maxRedeem] = await client.multicall({
+  const [shares, maxWithdraw, maxRedeem] = (await rawClient(client).multicall({
     allowFailure: false,
     contracts: [
       { address: vault, abi: blendedVaultAbi, functionName: "balanceOf", args: [user] },
       { address: vault, abi: blendedVaultAbi, functionName: "maxWithdraw", args: [user] },
       { address: vault, abi: blendedVaultAbi, functionName: "maxRedeem", args: [user] },
     ],
-  });
+  })) as readonly [bigint, bigint, bigint];
 
   return { shares, maxWithdraw, maxRedeem };
 }
@@ -394,7 +415,7 @@ export function encodeExecuteTimelockDelay(newDelay: bigint, salt: Hex): Hex {
 }
 
 function parseStrategyConfig(
-  config: readonly [boolean, boolean, bigint, bigint, boolean],
+  config: StrategyConfigTuple,
 ): StrategyConfig {
   return {
     registered: config[0],
@@ -403,4 +424,21 @@ function parseStrategyConfig(
     capAssets: config[3],
     isSynchronous: config[4],
   };
+}
+
+async function readTierMaxBps(
+  client: PublicClient,
+  vault: Address,
+  index: bigint,
+): Promise<bigint> {
+  return (await rawClient(client).readContract({
+    address: vault,
+    abi: blendedVaultAbi,
+    functionName: "tierMaxBps",
+    args: [index],
+  })) as bigint;
+}
+
+function rawClient(client: PublicClient): RawPublicClient {
+  return client as unknown as RawPublicClient;
 }

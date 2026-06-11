@@ -18,7 +18,7 @@
 [![Base](https://img.shields.io/badge/Chain-Base-0052FF?style=for-the-badge&logo=coinbase)](https://base.org)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.24-363636?style=for-the-badge&logo=solidity)](https://soliditylang.org)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-24%20Passing-brightgreen?style=for-the-badge)](TESTS.md)
+[![Tests](https://img.shields.io/badge/Tests-28%20Passing-brightgreen?style=for-the-badge)](TESTS.md)
 
 **Earn yield on your USDC. Automated. Diversified. Transparent.**
 
@@ -328,6 +328,22 @@ pnpm -C packages/sdk build
 
 # Build web app
 pnpm -C apps/web build
+
+# Build allocator bot
+pnpm -C services/allocator build
+```
+
+### Run Services
+
+```bash
+# Start indexer (for APY + TVL data)
+pnpm -C services/indexer dev
+
+# Start allocator bot (dry-run first)
+DRY_RUN=true pnpm -C services/allocator dev
+
+# Start web UI
+pnpm -C apps/web dev
 ```
 
 ---

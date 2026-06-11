@@ -148,6 +148,16 @@ app.listen(config.port, () => {
 function createRateLimiter(options: { windowMs: number; max: number }) {
   const hits = new Map<string, { count: number; resetAt: number }>();
 
+  // Prune expired entries every 60 seconds to prevent unbounded memory growth
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of hits) {
+      if (now > entry.resetAt) {
+        hits.delete(key);
+      }
+    }
+  }, 60_000).unref();
+
   return function rateLimiter(req: express.Request, res: express.Response, next: express.NextFunction) {
     const now = Date.now();
     const key = req.ip ?? req.socket.remoteAddress ?? "unknown";

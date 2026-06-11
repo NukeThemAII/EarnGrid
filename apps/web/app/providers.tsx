@@ -19,9 +19,11 @@ const config = createConfig({
   ssr: true,
 });
 
-const queryClient = new QueryClient();
-
 export function Providers({ children }: { children: React.ReactNode }) {
+  // Create QueryClient inside the component to prevent cross-request
+  // data leakage during server-side rendering.
+  const [queryClient] = React.useState(() => new QueryClient());
+
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>

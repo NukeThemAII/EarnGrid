@@ -110,7 +110,7 @@ export async function getAllocationHistory(
   db: Kysely<DB>,
   limit: number = 48
 ): Promise<{ timestamp: number; blockNumber: number; allocations: AllocationSnapshotRow[] }[]> {
-  const rows = await db
+  const buckets = await db
     .selectFrom("allocation_snapshots")
     .select(["timestamp", "block_number"])
     .groupBy(["timestamp", "block_number"])
@@ -118,25 +118,32 @@ export async function getAllocationHistory(
     .limit(limit)
     .execute();
 
-  if (rows.length === 0) {
+  if (buckets.length === 0) {
     return [];
   }
 
-  const snapshots: { timestamp: number; blockNumber: number; allocations: AllocationSnapshotRow[] }[] = [];
-  for (const row of rows) {
-    const allocations = await db
-      .selectFrom("allocation_snapshots")
-      .selectAll()
-      .where("timestamp", "=", row.timestamp)
-      .execute();
-    snapshots.push({
-      timestamp: row.timestamp,
-      blockNumber: row.block_number,
-      allocations,
-    });
+  const timestamps = buckets.map((b) => b.timestamp);
+  const allRows = await db
+    .selectFrom("allocation_snapshots")
+    .selectAll()
+    .where("timestamp", "in", timestamps)
+    .execute();
+
+  const byTimestamp = new Map<number, AllocationSnapshotRow[]>();
+  for (const row of allRows) {
+    const existing = byTimestamp.get(row.timestamp);
+    if (existing) {
+      existing.push(row);
+    } else {
+      byTimestamp.set(row.timestamp, [row]);
+    }
   }
 
-  return snapshots;
+  return buckets.map((bucket) => ({
+    timestamp: bucket.timestamp,
+    blockNumber: bucket.block_number,
+    allocations: byTimestamp.get(bucket.timestamp) ?? [],
+  }));
 }
 
 export async function getRecentSnapshots(

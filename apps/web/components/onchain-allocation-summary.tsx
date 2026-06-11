@@ -6,33 +6,11 @@ import { useReadContract, useReadContracts } from "wagmi";
 
 import { blendedVaultAbi } from "@blended-vault/sdk";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ALLOCATION_COLORS, erc20MetadataAbi, unwrapResult } from "@/lib/contracts";
 import { formatUsd, shortenAddress } from "@/lib/format";
-import { usdcDecimals, vaultAddress } from "@/lib/chain";
+import { usdcDecimals, vaultAddress, safeVaultAddress } from "@/lib/chain";
 
-const erc20MetadataAbi = [
-  {
-    type: "function",
-    name: "name",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "string" }],
-  },
-  {
-    type: "function",
-    name: "symbol",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "string" }],
-  },
-] as const;
-
-const colors = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--accent)",
-  "var(--accent-strong)",
-  "var(--chart-3)",
-];
+const colors = ALLOCATION_COLORS;
 
 type AllocationRow = {
   address: `0x${string}`;
@@ -43,8 +21,6 @@ type AllocationRow = {
 };
 
 export function OnchainAllocationSummary() {
-  const safeVaultAddress = (vaultAddress ||
-    "0x0000000000000000000000000000000000000000") as `0x${string}`;
 
   const { data: totalAssets } = useReadContract({
     abi: blendedVaultAbi,
@@ -124,14 +100,18 @@ export function OnchainAllocationSummary() {
     query: { enabled: Boolean(vaultAddress && strategies.length) },
   });
 
+  const assetResults = assetsData as readonly unknown[] | undefined;
+  const nameResults = namesData as readonly unknown[] | undefined;
+  const symbolResults = symbolsData as readonly unknown[] | undefined;
+
   const rows = React.useMemo<AllocationRow[]>(() => {
     const total = totalAssets ?? 0n;
     const totalFloat = toFloat(total, usdcDecimals);
     return strategies
       .map((address, index) => {
-        const assets = unwrapResult<bigint>(assetsData?.[index]) ?? 0n;
-        const name = unwrapResult<string>(namesData?.[index]);
-        const symbol = unwrapResult<string>(symbolsData?.[index]);
+        const assets = unwrapResult<bigint>(assetResults?.[index]) ?? 0n;
+        const name = unwrapResult<string>(nameResults?.[index]);
+        const symbol = unwrapResult<string>(symbolResults?.[index]);
         const percent = totalFloat > 0 ? (toFloat(assets, usdcDecimals) / totalFloat) * 100 : 0;
         return {
           address,
@@ -142,8 +122,13 @@ export function OnchainAllocationSummary() {
         };
       })
       .filter((row) => row.assets > 0n)
-      .sort((a, b) => b.assets - a.assets);
-  }, [strategies, assetsData, namesData, symbolsData, totalAssets]);
+      .sort((a, b) => {
+        if (a.assets === b.assets) {
+          return 0;
+        }
+        return a.assets > b.assets ? -1 : 1;
+      });
+  }, [strategies, assetResults, nameResults, symbolResults, totalAssets]);
 
   const totalLabel = totalAssets ? formatUsd(totalAssets, usdcDecimals) : "--";
   const gradient = buildGradient(rows);
@@ -245,16 +230,7 @@ function buildGradient(rows: AllocationRow[]): string {
   return `conic-gradient(${stops.join(", ")})`;
 }
 
-function unwrapResult<T>(value: unknown): T | null {
-  if (value && typeof value === "object" && "result" in value) {
-    const result = (value as { result?: T | null }).result;
-    return result ?? null;
-  }
-  if (value !== undefined && value !== null) {
-    return value as T;
-  }
-  return null;
-}
+
 
 function toFloat(value: bigint, decimals: number): number {
   return Number(formatUnits(value, decimals));

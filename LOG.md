@@ -142,6 +142,21 @@
 ### Infrastructure
 - **PostCSS config** at `apps/web/postcss.config.cjs` (already present, verified correct)
 
+### Allocator Bot
+- **Created `services/allocator/`** — stateless Node.js keeper bot that monitors Morpho Blue USDC vault APYs and rebalances automatically
+  - `src/morpho.ts` — fetches vault APYs from Morpho Blue GraphQL API
+  - `src/rebalancer.ts` — scores strategies by APY, computes target allocation within caps/tiers
+  - `src/executor.ts` — viem-based tx sender for rebalance() and harvest()
+  - `src/config.ts` — env-based config with validation
+  - Dry-run mode (`DRY_RUN=true`) — logs all actions without sending txns
+  - JSON-line logging for log aggregation
+  - Imports existing SDK for ABI/encoding
+
+### Deploy Scripts
+- **Simplified roles** for single-admin dev mode — all 4 roles default to deployer EOA if not overridden
+- **Added forge verify-contract** commands to the deployment guide
+- **Keeper bot section** in GUIDE.md with setup and usage
+
 ### Test Results
 - **28 tests passing** (26 unit/integration/fuzz + 2 invariants with 102,400 calls each)
 - Invariants: 0 failures across all runs

@@ -79,6 +79,18 @@ export function TxToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   }, []);
 
+  // Auto-dismiss completed toasts after a delay
+  React.useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (const toast of toasts) {
+      if (toast.status === "success" || toast.status === "error") {
+        const timer = setTimeout(() => dismiss(toast.id), toast.status === "success" ? 8_000 : 12_000);
+        timers.push(timer);
+      }
+    }
+    return () => timers.forEach(clearTimeout);
+  }, [toasts, dismiss]);
+
   return (
     <TxToastContext.Provider value={{ trackTx }}>
       {children}

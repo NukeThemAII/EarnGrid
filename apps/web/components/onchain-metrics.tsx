@@ -5,11 +5,10 @@ import { useAccount, useReadContract } from "wagmi";
 import { blendedVaultAbi } from "@blended-vault/sdk";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatNumber, formatUsd } from "@/lib/format";
-import { usdcDecimals, vaultAddress } from "@/lib/chain";
+import { usdcDecimals, vaultAddress, safeVaultAddress } from "@/lib/chain";
 
 export function OnchainMetrics() {
   const { address } = useAccount();
-  const safeVaultAddress = (vaultAddress || "0x0000000000000000000000000000000000000000") as `0x${string}`;
 
   const { data: totalAssets } = useReadContract({
     abi: blendedVaultAbi,
@@ -128,11 +127,11 @@ export function OnchainMetrics() {
         <div className="space-y-2 text-sm text-muted">
           <div className="flex items-center justify-between">
             <span>Your shares</span>
-            <span className="text-text number">{userShares ? formatNumber(userShares, usdcDecimals) : "--"}</span>
+            <span className="text-text number">{userShares !== undefined ? formatNumber(userShares, usdcDecimals) : "--"}</span>
           </div>
           <div className="flex items-center justify-between">
             <span>Max withdraw</span>
-            <span className="text-text number">{maxWithdraw ? formatUsd(maxWithdraw, usdcDecimals) : "--"}</span>
+            <span className="text-text number">{maxWithdraw !== undefined ? formatUsd(maxWithdraw, usdcDecimals) : "--"}</span>
           </div>
         </div>
         {!vaultAddress ? (

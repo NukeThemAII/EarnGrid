@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useTxToast } from "@/components/tx-toast";
 import { formatNumber, formatUsd } from "@/lib/format";
-import { chain, chainId, usdcAddress, usdcDecimals, vaultAddress } from "@/lib/chain";
+import { chain, chainId, usdcAddress, usdcDecimals, vaultAddress, safeVaultAddress, safeUsdcAddress } from "@/lib/chain";
 
 export function DepositWithdrawPanel() {
   const { address, isConnected, chain: activeChain } = useAccount();
@@ -24,8 +24,7 @@ export function DepositWithdrawPanel() {
 
   const parsedAmount = safeParseUnits(amount, usdcDecimals);
   const slippageBps = parseSlippageBps(slippage);
-  const safeVaultAddress = (vaultAddress || "0x0000000000000000000000000000000000000000") as `0x${string}`;
-  const safeUsdcAddress = (usdcAddress || "0x0000000000000000000000000000000000000000") as `0x${string}`;
+
   const hasConfig = Boolean(address && usdcAddress && vaultAddress);
   const isWrongNetwork = isConnected && activeChain ? activeChain.id !== chainId : false;
 

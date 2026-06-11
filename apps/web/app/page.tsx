@@ -1,10 +1,17 @@
 import { AllocationsTable } from "@/components/allocations-table";
+import { AllocationHistoryChart } from "@/components/allocation-history-chart";
 import { MetricCard } from "@/components/metric-card";
 import { OnchainAllocationSummary } from "@/components/onchain-allocation-summary";
 import { OnchainMetrics } from "@/components/onchain-metrics";
 import { Sparkline } from "@/components/sparkline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchAllocations, fetchApy, fetchPriceHistory, fetchTvl } from "@/lib/indexer";
+import {
+  fetchAllocationHistory,
+  fetchAllocations,
+  fetchApy,
+  fetchPriceHistory,
+  fetchTvl,
+} from "@/lib/indexer";
 import { formatNumber, formatPercent, formatUsd } from "@/lib/format";
 
 function buildSparkline(value: string | undefined, history?: string[]): number[] {
@@ -28,11 +35,12 @@ function buildSparkline(value: string | undefined, history?: string[]): number[]
 }
 
 export default async function DashboardPage() {
-  const [apy, tvl, allocations, history] = await Promise.all([
+  const [apy, tvl, allocations, history, allocationHistory] = await Promise.all([
     fetchApy(),
     fetchTvl(),
     fetchAllocations(),
     fetchPriceHistory(48),
+    fetchAllocationHistory(72),
   ]);
 
   const sharePrice = tvl ? formatNumber(tvl.assetsPerShare, 18, 6) : "--";
@@ -71,6 +79,7 @@ export default async function DashboardPage() {
       <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-6">
           <AllocationsTable allocations={allocations?.allocations ?? []} />
+          <AllocationHistoryChart snapshots={allocationHistory?.snapshots ?? []} />
           <OnchainAllocationSummary />
         </div>
         <div className="space-y-6">

@@ -6,32 +6,9 @@ import { useReadContract, useReadContracts } from "wagmi";
 import { blendedVaultAbi } from "@blended-vault/sdk";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { usdcDecimals, vaultAddress } from "@/lib/chain";
+import { usdcDecimals, vaultAddress, safeVaultAddress } from "@/lib/chain";
+import { erc20MetadataAbi, unwrapResult } from "@/lib/contracts";
 import { formatUsd, shortenAddress } from "@/lib/format";
-
-const erc20MetadataAbi = [
-  {
-    type: "function",
-    name: "name",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "string" }],
-  },
-  {
-    type: "function",
-    name: "symbol",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "string" }],
-  },
-  {
-    type: "function",
-    name: "decimals",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "uint8" }],
-  },
-] as const;
 
 type StrategyRow = {
   address: `0x${string}`;
@@ -47,8 +24,6 @@ type StrategyRow = {
 };
 
 export function OnchainStrategies() {
-  const safeVaultAddress = (vaultAddress ||
-    "0x0000000000000000000000000000000000000000") as `0x${string}`;
 
   const { data: strategyList, isLoading: listLoading } = useReadContract({
     abi: blendedVaultAbi,
@@ -137,6 +112,11 @@ export function OnchainStrategies() {
     query: { enabled: Boolean(vaultAddress && strategies.length) },
   });
 
+  const configResults = configs as readonly unknown[] | undefined;
+  const assetResults = assets as readonly unknown[] | undefined;
+  const nameResults = names as readonly unknown[] | undefined;
+  const symbolResults = symbols as readonly unknown[] | undefined;
+
   const depositRankByAddress = React.useMemo(() => {
     return new Map(depositQueue.map((address, index) => [address, index + 1]));
   }, [depositQueue]);
@@ -150,12 +130,12 @@ export function OnchainStrategies() {
       return [];
     }
     return strategies.map((address, index) => {
-      const config = unwrapResult<readonly [boolean, boolean, number, bigint, boolean]>(
-        configs?.[index]
+      const config = unwrapResult<readonly [boolean, boolean, bigint, bigint, boolean]>(
+        configResults?.[index]
       );
-      const asset = unwrapResult<bigint>(assets?.[index]);
-      const name = unwrapResult<string>(names?.[index]);
-      const symbol = unwrapResult<string>(symbols?.[index]);
+      const asset = unwrapResult<bigint>(assetResults?.[index]);
+      const name = unwrapResult<string>(nameResults?.[index]);
+      const symbol = unwrapResult<string>(symbolResults?.[index]);
       return {
         address,
         name: name ?? null,
@@ -169,7 +149,15 @@ export function OnchainStrategies() {
         withdrawRank: withdrawRankByAddress.get(address) ?? null,
       };
     });
-  }, [strategies, configs, assets, names, symbols, depositRankByAddress, withdrawRankByAddress]);
+  }, [
+    strategies,
+    configResults,
+    assetResults,
+    nameResults,
+    symbolResults,
+    depositRankByAddress,
+    withdrawRankByAddress,
+  ]);
 
   const nameByAddress = React.useMemo(() => {
     return new Map(
@@ -295,16 +283,4 @@ export function OnchainStrategies() {
   );
 }
 
-function unwrapResult<T>(value: unknown): T | null {
-  if (value && typeof value === "object") {
-    if ("result" in value) {
-      const result = (value as { result?: T | null }).result;
-      return result ?? null;
-    }
-    return null;
-  }
-  if (value !== undefined && value !== null) {
-    return value as T;
-  }
-  return null;
-}
+

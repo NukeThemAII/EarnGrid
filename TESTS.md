@@ -12,9 +12,9 @@ forge test
 
 ### Latest run
 
-- Date: 2026-01-01
+- Date: 2026-06-10
 - Command: `cd packages/contracts && forge test`
-- Result: 26 passed, 0 failed, 0 skipped
+- Result: 28 passed, 0 failed, 0 skipped
 
 ### What is tested
 
@@ -33,7 +33,8 @@ forge test
 | `BlendedVaultFuzz.t.sol` | 4 | Fuzz/invariants |
 | `BlendedVaultTimelock.t.sol` | 5 | Timelock |
 | `BlendedVaultReentrancy.t.sol` | 1 | Reentrancy |
-| **Total** | **26** | |
+| `BlendedVaultInvariants.t.sol` | 2 | Handler-based invariants (1024 runs, 100 depth each) |
+| **Total** | **28** | |
 
 ### Run with verbosity
 

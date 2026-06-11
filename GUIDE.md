@@ -42,14 +42,15 @@ BASE_RPC_URL=https://mainnet.base.org
 # Deployer key (hex, 0x prefix ok)
 DEPLOYER_KEY=0xYOUR_PRIVATE_KEY
 
-# Role addresses (can be the same EOA for prototype)
+# For dev: set all roles to the same EOA address
+# For prod: use different addresses + multisig
 VAULT_OWNER=0xYOUR_EOA
 VAULT_CURATOR=0xYOUR_EOA
 VAULT_ALLOCATOR=0xYOUR_EOA
 VAULT_GUARDIAN=0xYOUR_EOA
 FEE_RECIPIENT=0xYOUR_EOA
 
-# Optional tuning (defaults in script if omitted)
+| Optional tuning (defaults in script if omitted)
 TIER0_MAX_BPS=8000
 TIER1_MAX_BPS=5000
 TIER2_MAX_BPS=2000
@@ -77,13 +78,62 @@ forge script packages/contracts/script/DeployBaseMainnet.s.sol:DeployBaseMainnet
   --broadcast
 ```
 
+Optionally verify on Etherscan:
+
+```bash
+forge verify-contract \
+  --chain-id 8453 \
+  --etherscan-api-key "$ETHERSCAN_API_KEY" \
+  "$VAULT_ADDRESS" \
+  src/BlendedVault.sol:BlendedVault \
+  --constructor-args $(cast abi-encode \
+    "constructor(address,string,string,address,address,address,address,address,uint256[3],uint256,uint256,uint256,uint256,uint256)" \
+    "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" \
+    "Blended Vault USDC" "bvUSDC" \
+    "$VAULT_OWNER" "$VAULT_CURATOR" "$VAULT_ALLOCATOR" "$VAULT_GUARDIAN" "$FEE_RECIPIENT" \
+    "[$TIER0_MAX_BPS,$TIER1_MAX_BPS,$TIER2_MAX_BPS]" \
+    "$IDLE_LIQUIDITY_BPS" "$MIN_INITIAL_DEPOSIT" \
+    "$MAX_DAILY_INCREASE_BPS" "$MIN_HARVEST_INTERVAL" "$TIMELOCK_DELAY"
+```
+
 Record the deployed vault address from the output:
 
 ```bash
 export VAULT_ADDRESS=0xYOUR_DEPLOYED_VAULT
 ```
 
-## 4) Allowlist strategies (timelocked)
+## 4) Run the Allocator Bot (keeper)
+
+The allocator bot monitors Morpho Blue USDC vault APYs and rebalances automatically.
+
+Config:
+
+```bash
+cp services/allocator/.env.example services/allocator/.env
+# Edit: RPC_URL, PRIVATE_KEY (allocator role key), VAULT_ADDRESS
+```
+
+Run in dry-run mode first to verify:
+
+```bash
+DRY_RUN=true pnpm -C services/allocator dev
+```
+
+Then run live:
+
+```bash
+pnpm -C services/allocator dev
+```
+
+The bot:
+- Fetches USDC MetaMorpho vault APYs from Morpho Blue GraphQL every 12h
+- Rebalances into the best-yielding vault if APY improvement > 0.5%
+- Calls harvest() every 6h to accrue performance fees
+- Respects rebalanceCooldown (6h) and maxRebalanceAmountBps (50% per rebalance) set in the vault
+
+For production: run as a systemd service or cron job.
+
+## 5) Allowlist strategies (timelocked)
 
 Pick ERC-4626 strategy addresses on Base mainnet and decide tier + cap.
 Caps are in USDC units (6 decimals). Example: 1,000,000 USDC = 1000000000000.

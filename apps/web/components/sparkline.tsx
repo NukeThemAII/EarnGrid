@@ -19,7 +19,7 @@ export function Sparkline({ points }: SparklineProps) {
     .join(" ");
 
   return (
-    <svg viewBox="0 0 100 100" className="h-16 w-full">
+    <svg viewBox="0 0 100 100" className="h-16 w-full" role="img" aria-label="Share price trend sparkline">
       <defs>
         <linearGradient id="spark" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="var(--chart-1)" />
