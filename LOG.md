@@ -188,4 +188,17 @@
 - **EarnGrid dev server running** on port 3002, HTTP 200
 - **Data shows "--"** for all live metrics (expected — no vault deployed on mainnet yet)
 - **3 target strategies onchain-verified** (Steakhouse, Spark, Gauntlet on Base mainnet)
-- Pushed: `chore: gitignore .env.mainnet`
+
+### Base Mainnet Deployment (2026-06-11)
+- **BlendedVault deployed** at `0x047e35f587CF99423A6cF90c02bbD95d16Feb24B` on Base mainnet
+  - Name: "Blended Vault USDC", Symbol: "bvUSDC"
+  - Asset: USDC (0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)
+  - All roles (owner, curator, allocator, guardian, feeRecipient) = deployer EOA
+  - Config: Tier0=80%, Tier1=50%, Tier2=20%, idle=2%, timelock=24h, max daily inc=2%
+  - Total gas: ~0.000077 ETH ($0.0002) — cheap Base fees
+- **3 strategies scheduled via timelock** (execute after 2026-06-12):
+  - Steakhouse USDC (Tier 1, cap 250k USDC) — `0xbeeF...`
+  - Spark USDC Vault (Tier 1, cap 200k USDC) — `0x7BfA...`
+  - Gauntlet USDC Prime (Tier 1, cap 250k USDC) — `0xeE8F...`
+- **Configs updated** with deployed vault address: indexer, allocator, web app
+- **Pushed to GitHub**
