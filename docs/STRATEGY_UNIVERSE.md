@@ -402,15 +402,24 @@ Tier 1 (preferred start):
 - Steakhouse USDC (steakUSDC) — 0xbeeF010f9cb27031ad51e3333f9aF9C6B1228183
 - Optional add: Spark USDC Vault (sparkUSDC) — 0x7BfA7C4f149E7415b73bdeDfe609237e29CBF34A
 
-Tier 2 (optional expansion):
-- Gauntlet USDC Frontier — 0x1deEfABEe758AAbdC29a542B24ca3b75aFD56765
-  - ~$1.05M TVL, 18 decimals, ERC-4626 verified
-  - Not yet in Morpho Blue subgraph; verify APY source before allowlisting
-- Steakhouse High Yield USDC — 0xbeeff7aE5E00Aae3Db302e4B0d8C883810a58100
-  - ~$29.5M TVL, 18 decimals, ERC-4626 verified
-  - Not yet in Morpho Blue subgraph; verify APY source before allowlisting
-- Seamless USDC Vault (smUSDC) — 0x616a4E1db48e22028f6bbf20444Cd3b8e3273738
-- Moonwell Flagship USDC (mwUSDC) — 0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca
+Tier 2 (optional expansion — verified onchain):
+- Gauntlet USDC Frontier (gtUSDCf) — 0x236919F11ff9eA9550A4287696C2FC9e18E6e890
+  - ~$152k TVL, maxDeposit=~999e18, has supply queue configured
+  - Morpho MetaMorpho vault, verified working
+  - Morpho app: https://app.morpho.org/base/vault/0x236919F11ff9eA9550A4287696C2FC9e18E6e890/gauntlet-usdc-frontier
+- Steakhouse High Yield USDC (sirloinUSDC) — 0xCBeeF01994E24a60f7DCB8De98e75AD8BD4Ad60d
+  - ~$57.8k TVL, maxDeposit=~1e18, has supply queue configured
+  - Morpho MetaMorpho vault, verified working
+  - Morpho app: https://app.morpho.org/base/vault/0xCBeeF01994E24a60f7DCB8De98e75AD8BD4Ad60d/steakhouse-high-yield-usdc
+  - NOTE: the address 0xbeeff7aE5E00Aae3Db302e4B0d8C883810a58100 exists but has no supply queue (maxDeposit=0)
+
+Gauntlet Frontier (older, no supply queue) — 0x1deEfABEe758AAbdC29a542B24ca3b75aFD56765
+  - Exists but maxDeposit=0 (no supply queue configured)
+Steakhouse High Yield Instant (older, no supply queue) — 0xbeeff7aE5E00Aae3Db302e4B0d8C883810a58100
+  - Exists but maxDeposit=0 (no supply queue configured)
+
+Seamless USDC Vault (smUSDC) — 0x616a4E1db48e22028f6bbf20444Cd3b8e3273738
+Moonwell Flagship USDC (mwUSDC) — 0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca
 5) v0.1 initial caps & tiers (proposal)
 
 Tier limits:
