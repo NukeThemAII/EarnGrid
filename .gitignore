@@ -8,6 +8,7 @@ coverage/
 .env
 !.env.example
 .env.local
+.env.mainnet
 **/.next/
 **/node_modules/
 node_modules/
