@@ -57,26 +57,28 @@ export async function insertAllocationSnapshots(
   await db.insertInto("allocation_snapshots").values(snapshots).execute();
 }
 
-export async function getLatestSnapshot(db: Kysely<DB>): Promise<SnapshotRow | null> {
-  return db
+export async function getLatestSnapshot(db: Kysely<DB>): Promise<SnapshotRow | undefined> {
+  const row = await db
     .selectFrom("snapshots")
     .selectAll()
     .orderBy("timestamp", "desc")
     .limit(1)
     .executeTakeFirst();
+  return row;
 }
 
 export async function getSnapshotAtOrBefore(
   db: Kysely<DB>,
   timestamp: number
-): Promise<SnapshotRow | null> {
-  return db
+): Promise<SnapshotRow | undefined> {
+  const row = await db
     .selectFrom("snapshots")
     .selectAll()
     .where("timestamp", "<=", timestamp)
     .orderBy("timestamp", "desc")
     .limit(1)
     .executeTakeFirst();
+  return row;
 }
 
 export async function getLatestAllocations(

@@ -43,9 +43,9 @@ export const KNOWN_USDC_METAMORPHO_VAULTS: Address[] = [
 ];
 
 export const METAMORPHO_VAULT_NAMES: Record<string, string> = {
-  "0xbeeF010f9cb27031ad51e3333f9aF9C6B1228183": "steakUSDC",
-  "0x7BfA7C4f149E7415b73bdeDfe609237e29CBF34A": "sparkUSDC",
-  "0xeE8F4eC5672F09119b96Ab6fB59C27E1b7e44b61": "gtUSDCp",
-  "0x616a4E1db48e22028f6bbf20444Cd3b8e3273738": "smUSDC",
-  "0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca": "mwUSDC",
+  "0xbeef010f9cb27031ad51e3333f9af9c6b1228183": "steakUSDC",
+  "0x7bfa7c4f149e7415b73bdedfe609237e29cbf34a": "sparkUSDC",
+  "0xee8f4ec5672f09119b96ab6fb59c27e1b7e44b61": "gtUSDCp",
+  "0x616a4e1db48e22028f6bbf20444cd3b8e3273738": "smUSDC",
+  "0xc1256ae5ff1cf2719d4937adb3bbccab2e00a2ca": "mwUSDC",
 };

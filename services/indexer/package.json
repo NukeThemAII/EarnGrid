@@ -18,6 +18,9 @@
     "viem": "^2.17.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.6",
+    "@types/pg": "^8.20.0",
     "tsx": "^4.7.0",
     "typescript": "^5.4.0"
   }

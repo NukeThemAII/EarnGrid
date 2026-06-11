@@ -10,8 +10,9 @@ import {
   http,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { base } from "viem/chains";
+import { base, baseSepolia } from "viem/chains";
 import {
+  blendedVaultAbi,
   encodeRebalance,
   encodeHarvest,
 } from "@blended-vault/sdk";
@@ -38,7 +39,7 @@ export interface Executor {
 }
 
 export function createExecutor(cfg: Config): Executor {
-  const chain: Chain = cfg.chainId === 8453 ? base : (base as Chain);
+  const chain: Chain = cfg.chainId === baseSepolia.id ? baseSepolia : base;
   const transport = http(cfg.rpcUrl);
   const account: PrivateKeyAccount = privateKeyToAccount(cfg.privateKey);
 
@@ -87,11 +88,21 @@ export function createExecutor(cfg: Config): Executor {
         return null;
       }
 
+      const gas = applyGasBump(
+        await publicClient.estimateGas({
+          account,
+          to: cfg.vaultAddress,
+          data,
+        }),
+        cfg.gasLimitBump,
+      );
+
       const hash: Hex = await walletClient.sendTransaction({
         account,
         to: cfg.vaultAddress,
         data,
         chain,
+        gas,
       });
 
       console.log(
@@ -120,11 +131,28 @@ export function createExecutor(cfg: Config): Executor {
         return null;
       }
 
+      await publicClient.simulateContract({
+        account,
+        address: cfg.vaultAddress,
+        abi: blendedVaultAbi,
+        functionName: "harvest",
+        args: [],
+      });
+      const gas = applyGasBump(
+        await publicClient.estimateGas({
+          account,
+          to: cfg.vaultAddress,
+          data,
+        }),
+        cfg.gasLimitBump,
+      );
+
       const hash: Hex = await walletClient.sendTransaction({
         account,
         to: cfg.vaultAddress,
         data,
         chain,
+        gas,
       });
 
       console.log(
@@ -139,4 +167,11 @@ export function createExecutor(cfg: Config): Executor {
       return hash;
     },
   };
+}
+
+function applyGasBump(estimatedGas: bigint, bump: number): bigint {
+  if (!Number.isFinite(bump) || bump <= 1) {
+    return estimatedGas;
+  }
+  return (estimatedGas * BigInt(Math.ceil(bump * 100))) / 100n;
 }

@@ -1,29 +1,24 @@
 import type { Address } from "viem";
-import type { MorphoVaultWithApy, VaultsResponse } from "./types.js";
+import type { MorphoVault, MorphoVaultWithApy, VaultsResponse } from "./types.js";
 
 const BASE_CHAIN_ID = 8453;
 
-/**
- * Fetch APY data for specific MetaMorpho vault addresses from the Morpho
- * Blue GraphQL API. Fetches all vaults on Base and filters by the
- * requested strategy addresses. No asset filter is applied at the
- * GraphQL level since the API does not expose an `asset_in` field
- * on the VaultFilters type — filtering happens client-side.
- */
 export async function fetchMetaMorphoVaultApys(
   apiUrl: string,
   strategyAddresses: Address[],
 ): Promise<MorphoVaultWithApy[]> {
-  const addressSet = new Set(strategyAddresses.map((a) => a.toLowerCase()));
-  if (addressSet.size === 0) return [];
+  const addresses = [...new Set(strategyAddresses.map((address) => address.toLowerCase()))];
+  if (addresses.length === 0) return [];
+  const addressList = addresses.map((address) => `"${address}"`).join(", ");
 
   const query = `
-    query GetBaseVaults {
+    query GetBaseVaultsByAddress {
       vaults(
         where: {
           chainId_in: [${BASE_CHAIN_ID}]
+          address_in: [${addressList}]
         }
-        first: 100
+        first: ${addresses.length}
       ) {
         items {
           address
@@ -60,17 +55,7 @@ export async function fetchMetaMorphoVaultApys(
   }
 
   const items = json.data?.vaults?.items ?? [];
-
-  // Filter to only requested strategy addresses (case-insensitive)
-  const matched = items.filter((v) =>
-    addressSet.has(v.address.toLowerCase()),
-  );
-
-  return matched.map((v) => ({
-    ...v,
-    address: v.address.toLowerCase() as Address,
-    apyDecimal: v.state.netApy != null ? v.state.netApy / 100 : 0,
-  }));
+  return items.map((vault) => toMorphoVaultWithApy(vault));
 }
 
 /**
@@ -113,9 +98,18 @@ export async function fetchAllBaseVaults(
   const json: VaultsResponse = await response.json();
   const items = json.data?.vaults?.items ?? [];
 
-  return items.map((v) => ({
-    ...v,
-    address: v.address.toLowerCase() as Address,
-    apyDecimal: v.state.netApy != null ? v.state.netApy / 100 : 0,
-  }));
+  return items.map((vault) => toMorphoVaultWithApy(vault));
+}
+
+export function toMorphoVaultWithApy(vault: MorphoVault): MorphoVaultWithApy {
+  return {
+    address: vault.address.toLowerCase() as Address,
+    name: vault.name,
+    symbol: vault.symbol,
+    state: {
+      netApy: vault.state.netApy,
+      totalAssetsUsd: vault.state.totalAssetsUsd,
+    },
+    apyDecimal: vault.state.netApy ?? 0,
+  };
 }

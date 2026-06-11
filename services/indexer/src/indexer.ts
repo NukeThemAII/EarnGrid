@@ -180,8 +180,10 @@ export class VaultIndexer {
             return null;
           }
 
-          const config = configResult.result;
-          const assets = assetResult.result;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const config = configResult.result as any as readonly [boolean, boolean, bigint, bigint, boolean];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const assets = assetResult.result as any as bigint;
 
           return {
             timestamp: blockTimestamp,

@@ -1,7 +1,8 @@
 import { type Address, type PublicClient } from "viem";
-import { getAllocations } from "@blended-vault/sdk";
+import { getAllocations, getVaultState } from "@blended-vault/sdk";
 import type {
   StrategyAllocation,
+  VaultState,
 } from "@blended-vault/sdk";
 import type { MorphoVaultWithApy } from "./types.js";
 
@@ -13,6 +14,8 @@ export interface TargetAllocation {
   strategy: Address;
   label: string;
   apyPct: number;
+  currentAssets: bigint;
+  targetAssets: bigint;
   targetPct: number;
   currentPct: number;
 }
@@ -46,15 +49,21 @@ interface ScoredStrategy {
   tier: number;
   capAssets: bigint;
   assets: bigint;
-  enabled: boolean;
-  registered: boolean;
   apyDecimal: number;
+  hasApy: boolean;
   score: number;
   currentPct: number;
 }
 
 function scoreStrategy(apyDecimal: number): number {
   return apyDecimal;
+}
+
+export interface RebalanceInputs {
+  allocations: StrategyAllocation[];
+  vaultState: Pick<VaultState, "totalAssets" | "idleLiquidityBps" | "tierMaxBps">;
+  vaultApys: MorphoVaultWithApy[];
+  minDriftBps: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -71,13 +80,26 @@ export async function evaluateRebalance(
   vaultApys: MorphoVaultWithApy[],
   minImprovementBps: number,
 ): Promise<AllocatorDecision> {
-  // 1. Fetch current onchain allocations
-  const currentAllocations: StrategyAllocation[] = await getAllocations(
-    client,
-    vaultAddress,
-  );
+  const [allocations, vaultState] = await Promise.all([
+    getAllocations(client, vaultAddress),
+    getVaultState(client, vaultAddress),
+  ]);
 
-  if (currentAllocations.length === 0) {
+  return buildRebalanceDecision({
+    allocations,
+    vaultState,
+    vaultApys,
+    minDriftBps: minImprovementBps,
+  });
+}
+
+export function buildRebalanceDecision({
+  allocations,
+  vaultState,
+  vaultApys,
+  minDriftBps,
+}: RebalanceInputs): AllocatorDecision {
+  if (allocations.length === 0) {
     return {
       shouldRebalance: false,
       reason: "No strategies configured in vault",
@@ -90,164 +112,222 @@ export async function evaluateRebalance(
     };
   }
 
-  const totalAssets: bigint =
-    currentAllocations.reduce((sum: bigint, a: StrategyAllocation) => sum + a.assets, 0n) ?? 0n;
-  const totalAssetsNum: number = Number(totalAssets);
+  const totalAssets = vaultState.totalAssets;
+  const strategyAssets = allocations.reduce((sum, allocation) => sum + allocation.assets, 0n);
+  const idleAssets = totalAssets > strategyAssets ? totalAssets - strategyAssets : 0n;
+  const idleTarget = bpsOf(totalAssets, BigInt(vaultState.idleLiquidityBps));
+  const idleAvailable = idleAssets > idleTarget ? idleAssets - idleTarget : 0n;
+  const investableAssets = totalAssets > idleTarget ? totalAssets - idleTarget : 0n;
 
-  // 2. Build APY map by address
   const apyMap = new Map<string, number>();
   for (const apy of vaultApys) {
     apyMap.set(apy.address.toLowerCase(), apy.apyDecimal);
   }
 
-  // 3. Score each enabled/registered strategy
-  const scored: ScoredStrategy[] = currentAllocations
-    .filter((a: StrategyAllocation) => a.enabled && a.registered)
-    .map((alloc: StrategyAllocation) => {
-      const addrLower = alloc.strategy.toLowerCase();
-      const apyInfo: MorphoVaultWithApy | undefined = vaultApys.find(
-        (v: MorphoVaultWithApy) => v.address.toLowerCase() === addrLower,
-      );
-      const apyDecimal: number = apyInfo?.apyDecimal ?? 0;
+  const targetAssets = new Map<string, bigint>();
+  for (const allocation of allocations) {
+    targetAssets.set(allocation.strategy.toLowerCase(), 0n);
+  }
 
-      const currentPct: number =
-        totalAssetsNum > 0
-          ? (Number(alloc.assets) / totalAssetsNum) * 100
-          : 0;
+  const eligible = allocations.filter(
+    (allocation) => allocation.registered && allocation.enabled && allocation.isSynchronous,
+  );
+  const known: ScoredStrategy[] = [];
+  const tierTargetExposure: bigint[] = [0n, 0n, 0n];
+  let reservedForMissingApy = 0n;
 
-      return {
-        strategy: alloc.strategy,
-        tier: alloc.tier,
-        capAssets: alloc.capAssets,
-        assets: alloc.assets,
-        enabled: alloc.enabled,
-        registered: alloc.registered,
-        apyDecimal,
-        score: scoreStrategy(apyDecimal),
-        currentPct,
-      };
-    });
+  for (const allocation of eligible) {
+    const key = allocation.strategy.toLowerCase();
+    const apyDecimal = apyMap.get(key);
+    const currentPct = percentage(allocation.assets, totalAssets);
 
-  // Sort by score descending
-  scored.sort((a: ScoredStrategy, b: ScoredStrategy) => b.score - a.score);
-
-  // 4. Compute target allocation
-  // Simple heuristic: allocate to best strategy within cap/tier limits
-  const targetPcts: Record<string, number> = {};
-  let remainingPct = 100;
-
-  for (const s of scored) {
-    if (remainingPct <= 0) {
-      targetPcts[s.strategy.toLowerCase()] = 0;
+    if (apyDecimal === undefined) {
+      const preserved = clampToCap(allocation.assets, allocation.capAssets);
+      targetAssets.set(key, preserved);
+      reservedForMissingApy += preserved;
+      tierTargetExposure[allocation.tier] += preserved;
       continue;
     }
 
-    // Cap constraint: what % does the cap allow?
-    const capPct: number =
-      totalAssetsNum > 0
-        ? (Number(s.capAssets) / totalAssetsNum) * 100
-        : 100;
-
-    // Tier limit heuristic: tier 0 = 100%, tier 1 = 50%, tier 2 = 25%
-    const tierMaxPct: number = s.tier === 0 ? 100 : s.tier === 1 ? 50 : 25;
-
-    // Effective max for this strategy
-    const maxForThis: number = Math.min(capPct, tierMaxPct, remainingPct);
-    targetPcts[s.strategy.toLowerCase()] = Math.max(0, maxForThis);
-    remainingPct -= maxForThis;
-
-    // Rounding adjustment: dump remaining into first strategy
-    if (s === scored[0] && remainingPct > 0) {
-      targetPcts[s.strategy.toLowerCase()] += remainingPct;
-      remainingPct = 0;
-    }
+    known.push({
+      strategy: allocation.strategy,
+      tier: allocation.tier,
+      capAssets: allocation.capAssets,
+      assets: allocation.assets,
+      apyDecimal,
+      hasApy: true,
+      score: scoreStrategy(apyDecimal),
+      currentPct,
+    });
   }
 
-  // 5. Detect changes exceeding threshold
-  const deltas: TargetAllocation[] = scored.map((s: ScoredStrategy) => {
-    const addrLower = s.strategy.toLowerCase();
-    const targetPct = targetPcts[addrLower] ?? 0;
-    return {
-      strategy: s.strategy,
-      label: s.strategy.slice(0, 10),
-      apyPct: s.apyDecimal * 100,
-      currentPct: s.currentPct,
-      targetPct,
-    };
-  });
+  known.sort((a, b) => b.score - a.score);
 
-  const minImprovementDecimal = minImprovementBps / 10_000;
+  if (known.length === 0) {
+    return {
+      shouldRebalance: false,
+      reason: "No fresh APY data for enabled synchronous strategies",
+      withdrawStrategies: [],
+      withdrawAmounts: [],
+      depositStrategies: [],
+      depositAmounts: [],
+      targetAllocations: buildTargetAllocations(allocations, targetAssets, apyMap, totalAssets),
+      currentAllocations: buildCurrentAllocationMap(allocations, totalAssets),
+    };
+  }
+
+  let remainingBudget = investableAssets > reservedForMissingApy
+    ? investableAssets - reservedForMissingApy
+    : 0n;
+
+  for (const strategy of known) {
+    if (remainingBudget === 0n) {
+      targetAssets.set(strategy.strategy.toLowerCase(), 0n);
+      continue;
+    }
+
+    const tierLimit = bpsOf(
+      totalAssets,
+      BigInt(vaultState.tierMaxBps[strategy.tier] ?? 0),
+    );
+    const tierRemaining = tierLimit > tierTargetExposure[strategy.tier]
+      ? tierLimit - tierTargetExposure[strategy.tier]
+      : 0n;
+    const target = minBigInt(strategy.capAssets, tierRemaining, remainingBudget);
+
+    targetAssets.set(strategy.strategy.toLowerCase(), target);
+    tierTargetExposure[strategy.tier] += target;
+    remainingBudget -= target;
+  }
+
+  const deltas = buildTargetAllocations(allocations, targetAssets, apyMap, totalAssets);
   const significantChanges = deltas.filter(
-    (d: TargetAllocation) =>
-      Math.abs(d.targetPct - d.currentPct) > minImprovementDecimal * 100,
+    (delta) => absDiff(delta.targetAssets, delta.currentAssets) > bpsOf(totalAssets, BigInt(minDriftBps)),
   );
 
   if (significantChanges.length === 0) {
     return {
       shouldRebalance: false,
-      reason: `No significant allocation change needed (threshold: ${(minImprovementDecimal * 100).toFixed(2)}%)`,
+      reason: `No significant allocation change needed (threshold: ${(minDriftBps / 100).toFixed(2)}%)`,
       withdrawStrategies: [],
       withdrawAmounts: [],
       depositStrategies: [],
       depositAmounts: [],
       targetAllocations: deltas,
-      currentAllocations: Object.fromEntries(
-        scored.map((s: ScoredStrategy) => [s.strategy.toLowerCase(), s.currentPct]),
-      ),
+      currentAllocations: buildCurrentAllocationMap(allocations, totalAssets),
     };
   }
 
-  // 6. Build rebalance tx data
   const withdrawStrategies: Address[] = [];
   const withdrawAmounts: bigint[] = [];
   const depositStrategies: Address[] = [];
   const depositAmounts: bigint[] = [];
 
-  for (const s of scored) {
-    const addrLower = s.strategy.toLowerCase();
-    const targetPct = targetPcts[addrLower] ?? 0;
-    const targetAssets = BigInt(Math.floor((targetPct / 100) * totalAssetsNum));
+  for (const allocation of allocations) {
+    const target = targetAssets.get(allocation.strategy.toLowerCase()) ?? 0n;
 
-    if (targetAssets < s.assets) {
-      const diff = s.assets - targetAssets;
+    if (target < allocation.assets) {
+      const diff = allocation.assets - target;
       if (diff > 0n) {
-        withdrawStrategies.push(s.strategy);
+        withdrawStrategies.push(allocation.strategy);
         withdrawAmounts.push(diff);
       }
-    } else if (targetAssets > s.assets) {
-      const diff = targetAssets - s.assets;
+    } else if (target > allocation.assets) {
+      const diff = target - allocation.assets;
       if (diff > 0n) {
-        depositStrategies.push(s.strategy);
+        depositStrategies.push(allocation.strategy);
         depositAmounts.push(diff);
       }
     }
   }
 
-  // Verify conservation
-  const totalWithdraw = withdrawAmounts.reduce((a: bigint, b: bigint) => a + b, 0n);
-  const totalDeposit = depositAmounts.reduce((a: bigint, b: bigint) => a + b, 0n);
+  const totalWithdraw = sumBigInts(withdrawAmounts);
+  const totalDeposit = sumBigInts(depositAmounts);
+  const availableToDeposit = totalWithdraw + idleAvailable;
 
-  if (totalWithdraw !== totalDeposit) {
-    console.error(
-      JSON.stringify({
-        level: "warn",
-        event: "rebalance_imbalance",
-        totalWithdraw: totalWithdraw.toString(),
-        totalDeposit: totalDeposit.toString(),
-      }),
-    );
+  if (totalDeposit > availableToDeposit) {
+    return {
+      shouldRebalance: false,
+      reason: "Computed deposits exceed withdrawn plus deployable idle liquidity",
+      withdrawStrategies: [],
+      withdrawAmounts: [],
+      depositStrategies: [],
+      depositAmounts: [],
+      targetAllocations: deltas,
+      currentAllocations: buildCurrentAllocationMap(allocations, totalAssets),
+    };
   }
 
   return {
     shouldRebalance: true,
-    reason: `Rebalance triggered: ${significantChanges.length} strategies exceed ${(minImprovementDecimal * 100).toFixed(2)}% improvement threshold`,
+    reason: `Rebalance triggered: ${significantChanges.length} strategies exceed ${(minDriftBps / 100).toFixed(2)}% allocation drift threshold`,
     withdrawStrategies,
     withdrawAmounts,
     depositStrategies,
     depositAmounts,
     targetAllocations: deltas,
-    currentAllocations: Object.fromEntries(
-      scored.map((s: ScoredStrategy) => [s.strategy.toLowerCase(), s.currentPct]),
-    ),
+    currentAllocations: buildCurrentAllocationMap(allocations, totalAssets),
   };
+}
+
+function buildTargetAllocations(
+  allocations: StrategyAllocation[],
+  targetAssets: Map<string, bigint>,
+  apyMap: Map<string, number>,
+  totalAssets: bigint,
+): TargetAllocation[] {
+  return allocations.map((allocation) => {
+    const key = allocation.strategy.toLowerCase();
+    const target = targetAssets.get(key) ?? 0n;
+    const apyDecimal = apyMap.get(key) ?? 0;
+
+    return {
+      strategy: allocation.strategy,
+      label: allocation.strategy.slice(0, 10),
+      apyPct: apyDecimal * 100,
+      currentAssets: allocation.assets,
+      targetAssets: target,
+      currentPct: percentage(allocation.assets, totalAssets),
+      targetPct: percentage(target, totalAssets),
+    };
+  });
+}
+
+function buildCurrentAllocationMap(
+  allocations: StrategyAllocation[],
+  totalAssets: bigint,
+): Record<string, number> {
+  return Object.fromEntries(
+    allocations.map((allocation) => [
+      allocation.strategy.toLowerCase(),
+      percentage(allocation.assets, totalAssets),
+    ]),
+  );
+}
+
+function bpsOf(value: bigint, bps: bigint): bigint {
+  return (value * bps) / 10_000n;
+}
+
+function percentage(value: bigint, total: bigint): number {
+  if (total === 0n) {
+    return 0;
+  }
+  return Number((value * 1_000_000n) / total) / 10_000;
+}
+
+function minBigInt(...values: bigint[]): bigint {
+  return values.reduce((min, value) => (value < min ? value : min));
+}
+
+function sumBigInts(values: bigint[]): bigint {
+  return values.reduce((sum, value) => sum + value, 0n);
+}
+
+function absDiff(a: bigint, b: bigint): bigint {
+  return a > b ? a - b : b - a;
+}
+
+function clampToCap(value: bigint, cap: bigint): bigint {
+  return value > cap ? cap : value;
 }
