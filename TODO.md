@@ -23,10 +23,17 @@
 - [x] Dry-run mode, JSON-line logging
 - [x] Imports existing TS SDK
 
-### Infrastructure
-- [x] PostCSS config verified correct
+### Infra
+- [x] Created .env.mainnet with defaults for Base mainnet deployment
+- [x] Created services/allocator/.env with defaults
+- [x] Created services/indexer/.env with defaults
+- [x] Gitignore *.db.json and .env.local
 
 ## Protocol
+- [x] Onchain-verified 3 MetaMorpho strategies on Base mainnet (Steakhouse, Spark, Gauntlet)
+- [ ] Deploy BlendedVault to Base mainnet via forge script
+- [ ] Add strategies via timelock (schedule + execute)
+- [ ] Set deposit/withdraw queues
 - [ ] Confirm and validate Base Sepolia USDC address for deployment scripts.
 - [ ] Integrate 1–2 live strategies (MetaMorpho vaults) with caps and queues on Sepolia.
 - [ ] Add strategy adapters only if ERC-4626 compatibility gaps are confirmed.

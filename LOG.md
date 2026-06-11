@@ -161,9 +161,25 @@
 - **28 tests passing** (26 unit/integration/fuzz + 2 invariants with 102,400 calls each)
 - Invariants: 0 failures across all runs
 
+## 2026-06-11
+
+### Mainnet Preparation
+- **Onchain verified** 3 target MetaMorpho strategies on Base mainnet:
+  - Steakhouse USDC (0xbeeF...): ~$287M TVL, ERC-4626 verified
+  - Spark USDC Vault (0x7BfA...): ~$7.7M TVL, ERC-4626 verified
+  - Gauntlet USDC Prime (0xeE8F...): ~$442M TVL, ERC-4626 verified
+  - All 3 return USDC from `asset()`, support `totalAssets()/deposit()/withdraw()`
+- **Created deployment env files** for Base mainnet:
+  - `.env.mainnet` — Foundry deploy script config (user fills DEPLOYER_KEY + RPC)
+  - `services/allocator/.env` — Allocator bot config (user fills key + vault address)
+  - `services/indexer/.env` — Indexer config (user fills vault address)
+- **Gitignore** updated for runtime files (`*.db.json`, `.env.local`)
+- **Admin page** updated with connect-wallet guard before displaying admin actions
+- **Commit & push:** `fix(admin): add connect-wallet guard on admin page, gitignore runtime db files`
+
 ## Open TODOs
-- Confirm Base Sepolia USDC address for deployment script.
-- Integrate live strategies on testnet and set caps/queues.
-- Professional security audit before mainnet.
+- Fill DEPLOYER_KEY + RPC in .env.mainnet and run forge script to deploy.
+- Onchain: add strategies via timelock, set deposit/withdraw queues.
+- Professional security audit before mainnet launch.
 - Add historical allocation chart + richer share price chart.
 - Add admin UX for executing scheduled timelock actions.
