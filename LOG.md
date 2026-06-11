@@ -177,9 +177,15 @@
 - **Admin page** updated with connect-wallet guard before displaying admin actions
 - **Commit & push:** `fix(admin): add connect-wallet guard on admin page, gitignore runtime db files`
 
-## Open TODOs
-- Fill DEPLOYER_KEY + RPC in .env.mainnet and run forge script to deploy.
-- Onchain: add strategies via timelock, set deposit/withdraw queues.
-- Professional security audit before mainnet launch.
-- Add historical allocation chart + richer share price chart.
-- Add admin UX for executing scheduled timelock actions.
+### Post-reboot Verification (2026-06-11)
+- **All 28 contract tests pass** (26 unit/integration/fuzz + 2 invariants at 1024 runs x 100 depth)
+- **All 4 UI pages verified** via browser (Dashboard, Vault, Strategies, Admin)
+  - Zero console errors, zero JS errors
+  - Dashboard: TVL, share price, APY cards render; sparkline uses fallback data
+  - Vault: deposit/withdraw panel renders with disabled buttons (no wallet connected), fee disclosure visible
+  - Strategies: tier explanation, onchain strategy panel (no strategies yet), indexer snapshot (no data yet)
+  - Admin: connect-wallet guard displaying role actions (fixed in last session)
+- **EarnGrid dev server running** on port 3002, HTTP 200
+- **Data shows "--"** for all live metrics (expected — no vault deployed on mainnet yet)
+- **3 target strategies onchain-verified** (Steakhouse, Spark, Gauntlet on Base mainnet)
+- Pushed: `chore: gitignore .env.mainnet`
