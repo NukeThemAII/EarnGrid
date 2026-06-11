@@ -1,14 +1,40 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useAccount } from "wagmi";
 
 import { AdminActions } from "@/components/admin-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export const metadata: Metadata = {
-  title: "Admin · EarnGrid",
-  description: "Role-gated admin panel for EarnGrid vault management.",
-};
-
 export default function AdminPage() {
+  const { address, isConnected } = useAccount();
+
+  if (!isConnected) {
+    return (
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <Card className="animate-rise">
+          <CardHeader>
+            <CardTitle className="text-sm text-muted">Admin panel</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted">
+              Connect your wallet with an admin, curator, allocator, or guardian role to access vault
+              management actions.
+            </p>
+            <div className="rounded-lg border border-border/70 bg-surfaceElevated/60 p-4 text-sm text-muted">
+              <p className="mb-2 font-medium text-text">Role actions available:</p>
+              <ul className="list-disc space-y-1 pl-5 text-xs">
+                <li>Allocator: harvest fees and update deposit/withdraw queues.</li>
+                <li>Guardian: pause deposits or withdrawals, emergency remove strategies.</li>
+                <li>Curator: manage strategy allowlist, caps, and tier limits.</li>
+                <li>Owner: role management and fee recipient changes.</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-6">
