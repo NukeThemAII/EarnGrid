@@ -2,26 +2,21 @@ import express from "express";
 import { createPublicClient, http } from "viem";
 
 import { loadConfig } from "./config.js";
-import { createDatabase, initializeSchema } from "./db.js";
+import * as store from "./db.js";
 import { VaultIndexer } from "./indexer.js";
-import {
-  getAllocationHistory,
-  getLatestAllocations,
-  getLatestSnapshot,
-  getRecentSnapshots,
-  getSnapshotAtOrBefore,
-} from "./queries.js";
 
 const config = loadConfig();
+store.initDatabase(config.databaseUrl);
 
-const db = createDatabase({ databaseUrl: config.databaseUrl });
-await initializeSchema(db);
+if (config.vaultAddress === "0x0000000000000000000000000000000000000000") {
+  console.log("No vault address configured — indexer will run in stub mode (API only).");
+}
 
 const client = createPublicClient({
   transport: http(config.rpcUrl),
 });
 
-const indexer = new VaultIndexer(client, db, config);
+const indexer = new VaultIndexer(client as any, store, config);
 await indexer.init();
 indexer.start();
 
@@ -34,12 +29,12 @@ app.use(
   })
 );
 
-app.get("/api/health", async (_req, res) => {
+app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/api/tvl", async (_req, res) => {
-  const snapshot = await getLatestSnapshot(db);
+app.get("/api/tvl", (_req, res) => {
+  const snapshot = store.getLatestSnapshot();
   if (!snapshot) {
     res.status(404).json({ error: "no_snapshot" });
     return;
@@ -54,8 +49,8 @@ app.get("/api/tvl", async (_req, res) => {
   });
 });
 
-app.get("/api/allocations", async (_req, res) => {
-  const latest = await getLatestAllocations(db);
+app.get("/api/allocations", (_req, res) => {
+  const latest = store.getLatestAllocations();
   if (!latest) {
     res.status(404).json({ error: "no_allocations" });
     return;
@@ -75,9 +70,9 @@ app.get("/api/allocations", async (_req, res) => {
   });
 });
 
-app.get("/api/allocations/history", async (req, res) => {
+app.get("/api/allocations/history", (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit ?? 48), 1), 720);
-  const snapshots = await getAllocationHistory(db, limit);
+  const snapshots = store.getAllocationHistory(limit);
 
   res.json({
     snapshots: snapshots.map((snapshot) => ({
@@ -95,8 +90,8 @@ app.get("/api/allocations/history", async (req, res) => {
   });
 });
 
-app.get("/api/apy", async (_req, res) => {
-  const latest = await getLatestSnapshot(db);
+app.get("/api/apy", (_req, res) => {
+  const latest = store.getLatestSnapshot();
   if (!latest) {
     res.status(404).json({ error: "no_snapshot" });
     return;
@@ -106,10 +101,8 @@ app.get("/api/apy", async (_req, res) => {
   const sevenDays = 7 * 24 * 60 * 60;
   const thirtyDays = 30 * 24 * 60 * 60;
 
-  const [snapshot7d, snapshot30d] = await Promise.all([
-    getSnapshotAtOrBefore(db, now - sevenDays),
-    getSnapshotAtOrBefore(db, now - thirtyDays),
-  ]);
+  const snapshot7d = store.getSnapshotAtOrBefore(now - sevenDays);
+  const snapshot30d = store.getSnapshotAtOrBefore(now - thirtyDays);
 
   const apy7d = snapshot7d ? computeApy(snapshot7d.assets_per_share, latest.assets_per_share, 7) : null;
   const apy30d = snapshot30d
@@ -129,9 +122,9 @@ app.get("/api/apy", async (_req, res) => {
   });
 });
 
-app.get("/api/price-history", async (req, res) => {
+app.get("/api/price-history", (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit ?? 48), 2), 720);
-  const snapshots = await getRecentSnapshots(db, limit);
+  const snapshots = store.getRecentSnapshots(limit);
 
   res.json({
     snapshots: snapshots.map((snapshot) => ({
@@ -148,7 +141,6 @@ app.listen(config.port, () => {
 function createRateLimiter(options: { windowMs: number; max: number }) {
   const hits = new Map<string, { count: number; resetAt: number }>();
 
-  // Prune expired entries every 60 seconds to prevent unbounded memory growth
   setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of hits) {

@@ -1,6 +1,8 @@
 .DS_Store
 .env
 !.env.example
+*.db
+*.db-journal
 node_modules/
 **/node_modules/
 **/out/

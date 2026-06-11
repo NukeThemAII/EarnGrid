@@ -2,33 +2,25 @@ import type { PublicClient } from "viem";
 import { decodeEventLog } from "viem";
 
 import { blendedVaultAbi } from "./abi/blendedVault.js";
-import type { DatabaseClient } from "./db.js";
 import type { IndexerConfig } from "./config.js";
-import {
-  getLastProcessedBlock,
-  getLastSampleTimestamp,
-  insertAllocationSnapshots,
-  insertEvent,
-  insertSnapshot,
-  recordLastProcessedBlock,
-  recordLastSampleTimestamp,
-  recordStartBlock,
-} from "./queries.js";
+import * as store from "./db.js";
 
 export class VaultIndexer {
   private readonly client: PublicClient;
-  private readonly db: DatabaseClient;
   private readonly config: IndexerConfig;
   private running = false;
 
-  constructor(client: PublicClient, db: DatabaseClient, config: IndexerConfig) {
+  constructor(client: PublicClient, _store: typeof store, config: IndexerConfig) {
     this.client = client;
-    this.db = db;
     this.config = config;
   }
 
   async init(): Promise<void> {
-    const lastProcessed = await getLastProcessedBlock(this.db);
+    if (this.config.vaultAddress === ("0x0000000000000000000000000000000000000000" as `0x${string}`)) {
+      console.log("VaultIndexer: skipping init (no vault deployed)");
+      return;
+    }
+    const lastProcessed = store.getState("lastProcessedBlock");
     if (lastProcessed !== null) {
       return;
     }
@@ -36,9 +28,8 @@ export class VaultIndexer {
     const latestBlock = Number(await this.client.getBlockNumber());
     const startBlock = this.config.startBlock ?? latestBlock;
 
-    await recordStartBlock(this.db, startBlock);
-    // Record lastProcessedBlock as startBlock - 1 so syncEvents includes startBlock
-    await recordLastProcessedBlock(this.db, Math.max(startBlock - 1, 0));
+    store.setState("startBlock", String(startBlock));
+    store.setState("lastProcessedBlock", String(Math.max(startBlock - 1, 0)));
   }
 
   start(): void {
@@ -66,7 +57,7 @@ export class VaultIndexer {
   }
 
   private async syncEvents(): Promise<void> {
-    const lastProcessed = await getLastProcessedBlock(this.db);
+    const lastProcessed = store.getState("lastProcessedBlock");
     if (lastProcessed === null) {
       return;
     }
@@ -74,11 +65,11 @@ export class VaultIndexer {
     const latestBlock = Number(await this.client.getBlockNumber());
     const targetBlock = Math.max(latestBlock - this.config.finalityBlocks, 0);
 
-    if (lastProcessed >= targetBlock) {
+    if (Number(lastProcessed) >= targetBlock) {
       return;
     }
 
-    let fromBlock = lastProcessed + 1;
+    let fromBlock = Number(lastProcessed) + 1;
     while (fromBlock <= targetBlock) {
       const toBlock = Math.min(fromBlock + this.config.maxBlockRange - 1, targetBlock);
       const logs = await this.client.getLogs({
@@ -95,9 +86,11 @@ export class VaultIndexer {
             topics: log.topics,
           });
           const eventName = decoded.eventName;
-          const eventData = stringifyBigints(decoded.args ?? {});
+          const eventData = JSON.stringify(decoded.args ?? {}, (_key, val) =>
+            typeof val === "bigint" ? val.toString() : val
+          );
 
-          await insertEvent(this.db, {
+          store.insertEvent({
             block_number: Number(log.blockNumber ?? 0n),
             block_hash: log.blockHash ?? "",
             tx_hash: log.transactionHash ?? "",
@@ -111,16 +104,16 @@ export class VaultIndexer {
         }
       }
 
-      await recordLastProcessedBlock(this.db, toBlock);
+      store.setState("lastProcessedBlock", String(toBlock));
       fromBlock = toBlock + 1;
     }
   }
 
   private async sampleIfDue(): Promise<void> {
-    const lastSample = await getLastSampleTimestamp(this.db);
+    const lastSample = store.getState("lastSampleTimestamp");
     const now = Math.floor(Date.now() / 1000);
 
-    if (lastSample !== null && now - lastSample < this.config.sampleIntervalSec) {
+    if (lastSample !== null && now - Number(lastSample) < this.config.sampleIntervalSec) {
       return;
     }
 
@@ -138,7 +131,7 @@ export class VaultIndexer {
       ],
     });
 
-    await insertSnapshot(this.db, {
+    store.insertSnapshot({
       timestamp: blockTimestamp,
       block_number: blockNumber,
       total_assets: totalAssets.toString(),
@@ -180,9 +173,7 @@ export class VaultIndexer {
             return null;
           }
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const config = configResult.result as any as readonly [boolean, boolean, bigint, bigint, boolean];
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const assets = assetResult.result as any as bigint;
 
           return {
@@ -199,14 +190,10 @@ export class VaultIndexer {
         .filter((snapshot): snapshot is NonNullable<typeof snapshot> => snapshot !== null);
 
       if (allocationSnapshots.length > 0) {
-        await insertAllocationSnapshots(this.db, allocationSnapshots);
+        store.insertAllocationSnapshots(allocationSnapshots);
       }
     }
 
-    await recordLastSampleTimestamp(this.db, blockTimestamp);
+    store.setState("lastSampleTimestamp", String(blockTimestamp));
   }
-}
-
-function stringifyBigints(value: unknown): string {
-  return JSON.stringify(value, (_key, val) => (typeof val === "bigint" ? val.toString() : val));
 }
