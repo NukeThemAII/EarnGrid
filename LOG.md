@@ -202,3 +202,18 @@
   - Gauntlet USDC Prime (Tier 1, cap 250k USDC) — `0xeE8F...`
 - **Configs updated** with deployed vault address: indexer, allocator, web app
 - **Pushed to GitHub**
+
+### Post-timelock Strategy Activation (2026-06-13)
+- **All 3 strategies executed** via script — Steakhouse, Spark, Gauntlet Prime active on mainnet
+- Both deposit/withdraw queues set: [Steakhouse, Spark, Gauntlet]
+- **Post-execution script** added at `packages/contracts/script/execute-strategies.sh`
+
+### Blended APY & Dashboard Data (2026-06-13)
+- **Live wallet deposit** of 1 USDC confirmed onchain → vault got 1 USDC, 1 bvUSDC minted
+- **Idle 50% explanation**: Tier 1 max = 50% of TVL. With 1 USDC TVL, vault correctly allocates 0.50 USDC max to Steakhouse. As TVL grows, idle drops toward 2% target.
+- **Blended APY component**: shows projected ~3.53% (avg of 3 active Morpho vault APYs)
+- **Deposit UX**: single-button flow (Approve & Deposit in one click), auto-refetch allowance
+- **Indexer multicall**: changed to `allowFailure: true` for RPC resilience on public endpoints
+- **Force-snapshot tool**: `services/indexer/force-snapshot.ts` for manual indexer data injection
+- **Next.js dev server restarted** to pick up vault address env var
+- **Dashboard shows live data**: TVL $1.00, Share price 1 USDC, Blended APY 3.53%, 3 strategies, Onchain snapshot
