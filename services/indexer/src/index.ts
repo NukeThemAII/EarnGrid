@@ -1,5 +1,6 @@
 import express from "express";
 import { createPublicClient, http } from "viem";
+import { base } from "viem/chains";
 
 import { loadConfig } from "./config.js";
 import * as store from "./db.js";
@@ -13,6 +14,7 @@ if (config.vaultAddress === "0x0000000000000000000000000000000000000000") {
 }
 
 const client = createPublicClient({
+  chain: base,
   transport: http(config.rpcUrl),
 });
 
