@@ -208,6 +208,15 @@
 - Both deposit/withdraw queues set: [Steakhouse, Spark, Gauntlet]
 - **Post-execution script** added at `packages/contracts/script/execute-strategies.sh`
 
+### Deposit/Withdraw Round-Trip Test (2026-06-13)
+- **Full round-trip verified** with fresh test wallet on Base mainnet:
+  - Deposit 1 USDC → 999,997 bvUSDC (3 wei rounding) ✅
+  - Withdraw 999,997 bvUSDC → 999,999 USDC (1 wei loss) ✅
+  - Net loss: 1 wei (0.0001%) — effectively zero
+- **Deposit needs ~1.3M gas** due to MetaMorpho vault interaction (auto-allocation triggers Steakhouse deposit)
+- **Deployer wallet issue**: EIP-7702 delegation blocks ETH receives. Deployer can send txs but has 0 ETH for gas. 1,000,000 bvUSDC (~$1) stuck in vault until delegation resolved.
+- **Decision: redeploy with fresh private key** later. Current contract stays functional. All roles set correctly, strategies active, deposit/withdraw works for any user.
+
 ### Blended APY & Dashboard Data (2026-06-13)
 - **Live wallet deposit** of 1 USDC confirmed onchain → vault got 1 USDC, 1 bvUSDC minted
 - **Idle 50% explanation**: Tier 1 max = 50% of TVL. With 1 USDC TVL, vault correctly allocates 0.50 USDC max to Steakhouse. As TVL grows, idle drops toward 2% target.
