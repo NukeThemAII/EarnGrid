@@ -1,10 +1,24 @@
+import dynamic from "next/dynamic";
 import { AllocationsTable } from "@/components/allocations-table";
 import { AllocationHistoryChart } from "@/components/allocation-history-chart";
 import { MetricCard } from "@/components/metric-card";
 import { OnchainAllocationSummary } from "@/components/onchain-allocation-summary";
 import { OnchainMetrics } from "@/components/onchain-metrics";
-import { BlendedApy } from "@/components/blended-apy";
 import { Sparkline } from "@/components/sparkline";
+
+const BlendedApy = dynamic(() => import("@/components/blended-apy").then((m) => ({ default: m.BlendedApy })), {
+  ssr: false,
+  loading: () => (
+    <div className="rounded-xl border border-border bg-surface/80 animate-rise">
+      <div className="flex flex-col gap-2 p-5">
+        <h3 className="h-3 w-28 rounded bg-border animate-pulse text-sm text-muted">&nbsp;</h3>
+      </div>
+      <div className="px-5 pb-5 space-y-3">
+        <div className="h-8 w-24 rounded bg-border animate-pulse" />
+      </div>
+    </div>
+  ),
+});
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   fetchAllocationHistory,
