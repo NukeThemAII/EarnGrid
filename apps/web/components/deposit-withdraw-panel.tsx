@@ -2,7 +2,13 @@
 
 import * as React from "react";
 import { erc20Abi, formatUnits, parseUnits } from "viem";
-import { useAccount, usePublicClient, useReadContract, useWriteContract } from "wagmi";
+import {
+  useAccount,
+  usePublicClient,
+  useReadContract,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
 
 import { blendedVaultAbi } from "@blended-vault/sdk";
 import { Button } from "@/components/ui/button";
@@ -11,20 +17,30 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useTxToast } from "@/components/tx-toast";
 import { formatNumber, formatUsd } from "@/lib/format";
-import { chain, chainId, usdcAddress, usdcDecimals, vaultAddress, safeVaultAddress, safeUsdcAddress } from "@/lib/chain";
+import {
+  chain,
+  chainId,
+  usdcAddress,
+  usdcDecimals,
+  vaultAddress,
+  safeVaultAddress,
+  safeUsdcAddress,
+} from "@/lib/chain";
+
+type ActionMode = "deposit" | "withdraw";
 
 export function DepositWithdrawPanel() {
   const { address, isConnected, chain: activeChain } = useAccount();
   const [amount, setAmount] = React.useState("");
   const [slippage, setSlippage] = React.useState("0.5");
   const [localNotice, setLocalNotice] = React.useState<string | null>(null);
-  const { writeContractAsync, isPending } = useWriteContract();
+  const [mode, setMode] = React.useState<ActionMode>("deposit");
+  const { writeContractAsync, isPending, data: writeTxHash } = useWriteContract();
   const { trackTx } = useTxToast();
   const publicClient = usePublicClient({ chainId });
 
   const parsedAmount = safeParseUnits(amount, usdcDecimals);
   const slippageBps = parseSlippageBps(slippage);
-
   const hasConfig = Boolean(address && usdcAddress && vaultAddress);
   const isWrongNetwork = isConnected && activeChain ? activeChain.id !== chainId : false;
 
@@ -36,13 +52,15 @@ export function DepositWithdrawPanel() {
     query: { enabled: Boolean(address && usdcAddress) },
   });
 
-  const { data: allowance } = useReadContract({
+  const allowanceQuery = useReadContract({
     abi: erc20Abi,
     address: safeUsdcAddress,
     functionName: "allowance",
-    args: [address ?? safeVaultAddress, safeVaultAddress],
+    args: [address ?? (safeVaultAddress as `0x${string}`), safeVaultAddress],
     query: { enabled: Boolean(address && usdcAddress && vaultAddress) },
   });
+  const allowance = allowanceQuery.data;
+  const refetchAllowance = allowanceQuery.refetch;
 
   const { data: pausedDeposits } = useReadContract({
     abi: blendedVaultAbi,
@@ -83,34 +101,53 @@ export function DepositWithdrawPanel() {
   });
 
   const allowanceKnown = allowance !== undefined;
-  const needsApproval = allowanceKnown ? parsedAmount > allowance : true;
+  const needsApproval = mode === "deposit"
+    ? (allowanceKnown ? parsedAmount > allowance : true)
+    : false;
   const isDepositPaused = Boolean(pausedDeposits);
   const isWithdrawPaused = Boolean(pausedWithdrawals);
 
-  async function approve() {
-    if (!address || !usdcAddress || !vaultAddress || parsedAmount === 0n) {
-      return;
+  // ── Detect approve tx confirmation and auto-refetch allowance ───
+  const { isLoading: isWaitingForApproval, isSuccess: approvalConfirmed } =
+    useWaitForTransactionReceipt({
+      hash: writeTxHash,
+      query: { enabled: Boolean(writeTxHash) },
+    });
+
+  // Refetch allowance once the approve tx confirms
+  React.useEffect(() => {
+    if (approvalConfirmed) {
+      refetchAllowance();
     }
+  }, [approvalConfirmed, refetchAllowance]);
+
+  // ── Write functions ────────────────────────────────────────────
+
+  async function approve(): Promise<boolean> {
+    if (!address || !usdcAddress || !vaultAddress || parsedAmount === 0n) return false;
     setLocalNotice(null);
-    await trackTx(
-      () =>
-        writeContractAsync({
-          abi: erc20Abi,
-          address: usdcAddress,
-          functionName: "approve",
-          args: [vaultAddress, parsedAmount],
-        }),
-      { title: "Approve USDC" }
-    );
+    try {
+      await trackTx(
+        () =>
+          writeContractAsync({
+            abi: erc20Abi,
+            address: usdcAddress,
+            functionName: "approve",
+            args: [vaultAddress, parsedAmount],
+          }),
+        { title: "Approve USDC" }
+      );
+      // Refetch allowance immediately after tx submission
+      await refetchAllowance();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async function deposit() {
-    if (!address || !vaultAddress || parsedAmount === 0n) {
-      return;
-    }
-    if (!(await checkSlippage("deposit"))) {
-      return;
-    }
+    if (!address || !vaultAddress || parsedAmount === 0n) return;
+    if (!(await checkSlippage("deposit"))) return;
     setLocalNotice(null);
     await trackTx(
       () =>
@@ -125,12 +162,8 @@ export function DepositWithdrawPanel() {
   }
 
   async function withdraw() {
-    if (!address || !vaultAddress || parsedAmount === 0n) {
-      return;
-    }
-    if (!(await checkSlippage("withdraw"))) {
-      return;
-    }
+    if (!address || !vaultAddress || parsedAmount === 0n) return;
+    if (!(await checkSlippage("withdraw"))) return;
     setLocalNotice(null);
     await trackTx(
       () =>
@@ -144,29 +177,43 @@ export function DepositWithdrawPanel() {
     );
   }
 
-  async function checkSlippage(mode: "deposit" | "withdraw"): Promise<boolean> {
-    if (!vaultAddress || parsedAmount === 0n) {
-      return true;
+  // ── Single-button handler —────────────────────────────────────
+
+  async function handleAction() {
+    if (mode === "deposit") {
+      if (needsApproval) {
+        const ok = await approve();
+        if (!ok) return;
+        // Allowance will be refetched by the receipt watcher;
+        // give it a moment then retry deposit
+        await new Promise((r) => setTimeout(r, 1200));
+        await refetchAllowance();
+      }
+      await deposit();
+    } else {
+      await withdraw();
     }
-    if (!publicClient) {
-      return true;
-    }
+  }
+
+  // ── Slippage check ────────────────────────────────────────────
+
+  async function checkSlippage(action: ActionMode): Promise<boolean> {
+    if (!vaultAddress || parsedAmount === 0n) return true;
+    if (!publicClient) return true;
     if (slippageBps === null) {
       setLocalNotice("Invalid slippage tolerance. Use a positive number under 100%.");
       return false;
     }
-    const baseline = mode === "deposit" ? previewDeposit : previewWithdraw;
-    if (baseline === undefined || baseline === 0n) {
-      return true;
-    }
+    const baseline = action === "deposit" ? previewDeposit : previewWithdraw;
+    if (baseline === undefined || baseline === 0n) return true;
     try {
       const latest = (await publicClient.readContract({
         abi: blendedVaultAbi,
         address: vaultAddress,
-        functionName: mode === "deposit" ? "previewDeposit" : "previewWithdraw",
+        functionName: action === "deposit" ? "previewDeposit" : "previewWithdraw",
         args: [parsedAmount],
       })) as bigint;
-      if (mode === "deposit") {
+      if (action === "deposit") {
         const minShares = (baseline * (10_000n - slippageBps)) / 10_000n;
         if (latest < minShares) {
           setLocalNotice("Slippage check failed. Share output moved below tolerance.");
@@ -186,6 +233,34 @@ export function DepositWithdrawPanel() {
     }
     return true;
   }
+
+  // ── Button label ──────────────────────────────────────────────
+
+  const actionButtonLabel = (() => {
+    if (!isConnected) return "Connect Wallet";
+    if (mode === "deposit") {
+      if (needsApproval && !isPending) return "Approve & Deposit";
+      if (isPending) return "Pending...";
+      return "Deposit";
+    }
+    if (isPending) return "Pending...";
+    return "Withdraw";
+  })();
+
+  const actionEnabled = (() => {
+    if (!isConnected || isWrongNetwork) return false;
+    if (isPending) return false;
+    if (parsedAmount === 0n) return false;
+    if (!hasConfig) return false;
+    if (mode === "deposit") {
+      if (isDepositPaused && !isPending) return false;
+    } else {
+      if (isWithdrawPaused && !isPending) return false;
+    }
+    return true;
+  })();
+
+  // ── Render ────────────────────────────────────────────────────
 
   return (
     <Card className="animate-rise">
@@ -209,6 +284,34 @@ export function DepositWithdrawPanel() {
             Set `NEXT_PUBLIC_VAULT_ADDRESS` to enable vault actions.
           </div>
         ) : null}
+
+        {/* Mode toggle */}
+        <div className="flex gap-1 rounded-lg border border-border/70 bg-surfaceElevated/60 p-1 text-xs">
+          <button
+            type="button"
+            className={`flex-1 rounded-md px-3 py-2 text-center transition ${
+              mode === "deposit"
+                ? "bg-accent text-bg font-medium"
+                : "text-muted hover:text-text"
+            }`}
+            onClick={() => { setMode("deposit"); setLocalNotice(null); }}
+          >
+            Deposit
+          </button>
+          <button
+            type="button"
+            className={`flex-1 rounded-md px-3 py-2 text-center transition ${
+              mode === "withdraw"
+                ? "bg-accent text-bg font-medium"
+                : "text-muted hover:text-text"
+            }`}
+            onClick={() => { setMode("withdraw"); setLocalNotice(null); }}
+          >
+            Withdraw
+          </button>
+        </div>
+
+        {/* Amount input */}
         <div className="space-y-2">
           <div className="relative">
             <Input
@@ -237,12 +340,16 @@ export function DepositWithdrawPanel() {
               Wallet balance:{" "}
               {balance !== undefined ? formatUsd(balance, usdcDecimals) : "--"}
             </span>
-            <span>
-              Max withdraw:{" "}
-              {maxWithdraw !== undefined ? formatUsd(maxWithdraw, usdcDecimals) : "--"}
-            </span>
+            {mode === "withdraw" ? (
+              <span>
+                Max withdraw:{" "}
+                {maxWithdraw !== undefined ? formatUsd(maxWithdraw, usdcDecimals) : "--"}
+              </span>
+            ) : null}
           </div>
         </div>
+
+        {/* Slippage */}
         <div className="space-y-2 text-xs text-muted">
           <div className="flex items-center justify-between gap-3">
             <span>Slippage tolerance</span>
@@ -261,66 +368,50 @@ export function DepositWithdrawPanel() {
             Client-side check only. Onchain slippage guards are not available in v0.1.
           </p>
         </div>
+
         {localNotice ? (
           <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
             {localNotice}
           </div>
         ) : null}
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Button
-            variant="outline"
-            onClick={approve}
-            disabled={
-              !isConnected ||
-              isWrongNetwork ||
-              isPending ||
-              parsedAmount === 0n ||
-              !hasConfig ||
-              (!needsApproval && allowanceKnown)
-            }
-          >
-            {needsApproval ? "Approve USDC" : "Approved"}
-          </Button>
-          <Button
-            onClick={deposit}
-            disabled={
-              !isConnected ||
-              isWrongNetwork ||
-              isPending ||
-              needsApproval ||
-              isDepositPaused ||
-              !hasConfig
-            }
-          >
-            Deposit
-          </Button>
-          <Button
-            variant="outline"
-            onClick={withdraw}
-            disabled={!isConnected || isWrongNetwork || isPending || isWithdrawPaused || !hasConfig}
-          >
-            Withdraw
-          </Button>
-        </div>
+
+        {/* Single action button */}
+        <Button
+          className="w-full"
+          onClick={handleAction}
+          disabled={!actionEnabled || isWaitingForApproval}
+        >
+          {isWaitingForApproval ? "Waiting for approval..." : actionButtonLabel}
+        </Button>
+
+        {/* Info row */}
         <div className="space-y-2 text-xs text-muted">
-          <div className="flex items-center justify-between">
-            <span>Allowance</span>
-            <span>
-              {allowance !== undefined ? formatNumber(allowance, usdcDecimals) : "--"} USDC
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Est. shares (deposit)</span>
-            <span>
-              {previewDeposit !== undefined ? formatNumber(previewDeposit, usdcDecimals) : "--"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Est. shares burned (withdraw)</span>
-            <span>
-              {previewWithdraw !== undefined ? formatNumber(previewWithdraw, usdcDecimals) : "--"}
-            </span>
-          </div>
+          {mode === "deposit" ? (
+            <>
+              <div className="flex items-center justify-between">
+                <span>Allowance</span>
+                <span>
+                  {allowance !== undefined ? formatNumber(allowance, usdcDecimals) : "--"} USDC
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Est. shares</span>
+                <span>
+                  {previewDeposit !== undefined ? formatNumber(previewDeposit, usdcDecimals) : "--"}
+                </span>
+              </div>
+              {needsApproval && allowanceKnown ? (
+                <p>Approval required for {formatNumber(parsedAmount, usdcDecimals)} USDC.</p>
+              ) : null}
+            </>
+          ) : (
+            <div className="flex items-center justify-between">
+              <span>Est. shares burned</span>
+              <span>
+                {previewWithdraw !== undefined ? formatNumber(previewWithdraw, usdcDecimals) : "--"}
+              </span>
+            </div>
+          )}
           <p>
             This is a synchronous vault. Withdrawals revert if liquidity is unavailable.
           </p>
@@ -331,9 +422,7 @@ export function DepositWithdrawPanel() {
 }
 
 function safeParseUnits(value: string, decimals: number): bigint {
-  if (!value) {
-    return 0n;
-  }
+  if (!value) return 0n;
   try {
     return parseUnits(value, decimals);
   } catch {
@@ -343,20 +432,14 @@ function safeParseUnits(value: string, decimals: number): bigint {
 
 function formatInputUnits(value: bigint, decimals: number): string {
   const formatted = formatUnits(value, decimals);
-  if (!formatted.includes(".")) {
-    return formatted;
-  }
+  if (!formatted.includes(".")) return formatted;
   return formatted.replace(/\.?0+$/, "");
 }
 
 function parseSlippageBps(value: string): bigint | null {
-  if (!value) {
-    return 0n;
-  }
+  if (!value) return 0n;
   const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric < 0 || numeric >= 100) {
-    return null;
-  }
+  if (!Number.isFinite(numeric) || numeric < 0 || numeric >= 100) return null;
   const bps = Math.round(numeric * 100);
   return BigInt(bps);
 }
