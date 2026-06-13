@@ -32,7 +32,7 @@ echo ""
 # — Check if timelock has expired ————————————————————————————————
 echo "Checking timelock delay..."
 DELAY=$(cast call --rpc-url "$RPC" "$VAULT" "timelockDelay()(uint256)")
-echo "  Delay: $DELAY seconds ($((DELAY / 3600))h)"
+echo "  Delay: $(echo $DELAY | grep -oP '^\d+' || echo $DELAY) seconds"
 echo "  Timelock expires ~Jun 12 18:00 UTC"
 echo ""
 
