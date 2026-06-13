@@ -3,6 +3,7 @@ import { AllocationHistoryChart } from "@/components/allocation-history-chart";
 import { MetricCard } from "@/components/metric-card";
 import { OnchainAllocationSummary } from "@/components/onchain-allocation-summary";
 import { OnchainMetrics } from "@/components/onchain-metrics";
+import { BlendedApy } from "@/components/blended-apy";
 import { Sparkline } from "@/components/sparkline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -78,6 +79,7 @@ export default async function DashboardPage() {
 
       <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-6">
+          <BlendedApy />
           <AllocationsTable allocations={allocations?.allocations ?? []} />
           <AllocationHistoryChart snapshots={allocationHistory?.snapshots ?? []} />
           <OnchainAllocationSummary />

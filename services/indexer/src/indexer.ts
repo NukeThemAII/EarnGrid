@@ -121,8 +121,8 @@ export class VaultIndexer {
     const blockNumber = Number(latestBlock.number ?? 0n);
     const blockTimestamp = Number(latestBlock.timestamp ?? BigInt(now));
 
-    const [totalAssets, totalSupply, assetsPerShare, strategies] = await this.client.multicall({
-      allowFailure: false,
+    const mcResult = await this.client.multicall({
+      allowFailure: true,
       contracts: [
         { address: this.config.vaultAddress, abi: blendedVaultAbi, functionName: "totalAssets" },
         { address: this.config.vaultAddress, abi: blendedVaultAbi, functionName: "totalSupply" },
@@ -130,6 +130,17 @@ export class VaultIndexer {
         { address: this.config.vaultAddress, abi: blendedVaultAbi, functionName: "getStrategies" },
       ],
     });
+
+    // Bail if any core call failed
+    if (mcResult.some((r) => r.status === "failure")) {
+      console.warn("SampleIfDue: core multicall failed, skipping sample");
+      return;
+    }
+
+    const totalAssets = mcResult[0].result as bigint;
+    const totalSupply = mcResult[1].result as bigint;
+    const assetsPerShare = mcResult[2].result as bigint;
+    const strategies = mcResult[3].result as readonly `0x${string}`[];
 
     store.insertSnapshot({
       timestamp: blockTimestamp,

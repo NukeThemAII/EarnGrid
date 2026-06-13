@@ -97,8 +97,8 @@ importers:
   services/indexer:
     dependencies:
       better-sqlite3:
-        specifier: ^9.6.0
-        version: 9.6.0
+        specifier: ^11.10.0
+        version: 11.10.0
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -1291,8 +1291,8 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  better-sqlite3@9.6.0:
-    resolution: {integrity: sha512-yR5HATnqeYNVnkaUTf4bOP2dJSnyhP4puJN/QPRyx4YkBEEUxib422n2XzPqDEHjQQqazoYoADdAm5vE15+dAQ==}
+  better-sqlite3@11.10.0:
+    resolution: {integrity: sha512-EwhOpyXiOEL/lKzHz9AW1msWFNzGc/z+LzeB3/jnFJpxu+th2yqvzsSWas1v9jgs9+xiXJcD5A8CJxAG2TaghQ==}
 
   big.js@6.2.2:
     resolution: {integrity: sha512-y/ie+Faknx7sZA5MfGA2xKlu0GDv8RWrXGsmlteyJQ2lvoKv9GBK/fpRMc2qlSoBAgNxrixICFCBefIq8WCQpQ==}
@@ -3447,7 +3447,7 @@ snapshots:
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
       '@types/debug': 4.1.13
-      debug: 4.3.4
+      debug: 4.4.3
       pony-cause: 2.1.11
       semver: 7.8.4
       uuid: 9.0.1
@@ -5076,7 +5076,7 @@ snapshots:
 
   baseline-browser-mapping@2.10.35: {}
 
-  better-sqlite3@9.6.0:
+  better-sqlite3@11.10.0:
     dependencies:
       bindings: 1.5.0
       prebuild-install: 7.1.3
