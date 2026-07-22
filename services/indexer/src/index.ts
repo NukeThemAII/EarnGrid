@@ -136,6 +136,25 @@ app.get("/api/price-history", (req, res) => {
   });
 });
 
+app.get("/api/strategies/health", (_req, res) => {
+  const health = store.getLatestStrategyHealth();
+  if (!health) {
+    res.status(404).json({ error: "no_health_data" });
+    return;
+  }
+  res.json({
+    timestamp: health.timestamp,
+    blockNumber: health.blockNumber,
+    strategies: health.strategies.map((row) => ({
+      strategy: row.strategy,
+      assets: row.assets,
+      maxWithdraw: row.max_withdraw,
+      utilization: row.utilization,
+      sharePriceDeltaBps: row.share_price_delta_bps,
+    })),
+  });
+});
+
 app.listen(config.port, () => {
   console.log(`Indexer API listening on :${config.port}`);
 });
