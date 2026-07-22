@@ -151,6 +151,7 @@ app.get("/api/strategies/health", (_req, res) => {
       maxWithdraw: row.max_withdraw,
       utilization: row.utilization,
       sharePriceDeltaBps: row.share_price_delta_bps,
+      tier: row.tier ?? 1,
     })),
   });
 });

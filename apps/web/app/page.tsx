@@ -5,6 +5,7 @@ import { MetricCard } from "@/components/metric-card";
 import { OnchainAllocationSummary } from "@/components/onchain-allocation-summary";
 import { OnchainMetrics } from "@/components/onchain-metrics";
 import { Sparkline } from "@/components/sparkline";
+import { StrategyHealthCards } from "@/components/strategy-health-cards";
 
 const BlendedApy = dynamic(() => import("@/components/blended-apy").then((m) => ({ default: m.BlendedApy })), {
   ssr: false,
@@ -25,6 +26,7 @@ import {
   fetchAllocations,
   fetchApy,
   fetchPriceHistory,
+  fetchStrategyHealth,
   fetchTvl,
 } from "@/lib/indexer";
 import { formatNumber, formatPercent, formatUsd } from "@/lib/format";
@@ -50,12 +52,13 @@ function buildSparkline(value: string | undefined, history?: string[]): number[]
 }
 
 export default async function DashboardPage() {
-  const [apy, tvl, allocations, history, allocationHistory] = await Promise.all([
+  const [apy, tvl, allocations, history, allocationHistory, strategyHealth] = await Promise.all([
     fetchApy(),
     fetchTvl(),
     fetchAllocations(),
     fetchPriceHistory(48),
     fetchAllocationHistory(72),
+    fetchStrategyHealth(),
   ]);
 
   const sharePrice = tvl ? formatNumber(tvl.assetsPerShare, 18, 6) : "--";
@@ -100,6 +103,7 @@ export default async function DashboardPage() {
         </div>
         <div className="space-y-6">
           <OnchainMetrics />
+          <StrategyHealthCards health={strategyHealth} />
           <Card className="animate-rise">
             <CardHeader>
               <CardTitle className="text-sm text-muted">Share price trend</CardTitle>

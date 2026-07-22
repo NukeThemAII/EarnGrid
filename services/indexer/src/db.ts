@@ -34,6 +34,8 @@ export type StrategyHealthRow = {
   timestamp: number;
   block_number: number;
   strategy: string;
+  /** Tier level (0=core, 1=primary, 2=secondary). */
+  tier: number;
   /** `strategyAssets(strategy)` — current assets deployed to the strategy. */
   assets: string;
   /** `maxWithdraw` from the underlying ERC-4626 vault (liquidity check). */

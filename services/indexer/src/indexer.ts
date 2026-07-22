@@ -366,8 +366,9 @@ export class VaultIndexer {
           timestamp: blockTimestamp,
           block_number: blockNumber,
           strategy: alloc.strategy,
+          tier: alloc.tier,
           assets: alloc.assets,
-          max_withdraw: alloc.assets, // strategyAssets = max redeemable from BlendedVault's perspective
+          max_withdraw: alloc.assets,
           utilization,
           share_price_delta_bps: sharePriceDeltaBps,
         };

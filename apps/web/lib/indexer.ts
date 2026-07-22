@@ -46,6 +46,19 @@ export type PriceHistoryResponse = {
   }[];
 };
 
+export type StrategyHealthResponse = {
+  timestamp: number;
+  blockNumber: number;
+  strategies: {
+    strategy: string;
+    assets: string;
+    maxWithdraw: string;
+    utilization: number;
+    sharePriceDeltaBps: number;
+    tier: number;
+  }[];
+};
+
 function baseUrl(): string {
   return process.env.NEXT_PUBLIC_INDEXER_URL ?? "http://localhost:3001";
 }
@@ -70,6 +83,10 @@ export async function fetchAllocationHistory(limit = 72): Promise<AllocationHist
 
 export async function fetchPriceHistory(limit = 48): Promise<PriceHistoryResponse | null> {
   return fetchJson<PriceHistoryResponse>(`/api/price-history?limit=${limit}`);
+}
+
+export async function fetchStrategyHealth(): Promise<StrategyHealthResponse | null> {
+  return fetchJson<StrategyHealthResponse>("/api/strategies/health");
 }
 
 async function fetchJson<T>(path: string): Promise<T | null> {

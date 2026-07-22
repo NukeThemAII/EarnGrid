@@ -22,7 +22,17 @@ export function AdminActions() {
   const [withdrawQueueInput, setWithdrawQueueInput] = React.useState("");
   const [capInput, setCapInput] = React.useState("");
   const [salt, setSalt] = React.useState(() => createSalt());
+  const [executeStrategy, setExecuteStrategy] = React.useState("");
+  const [executeCap, setExecuteCap] = React.useState("");
+  const [executeSalt, setExecuteSalt] = React.useState("");
   const [notice, setNotice] = React.useState<string | null>(null);
+
+  const { data: timelockDelay } = useReadContract({
+    abi: blendedVaultAbi,
+    address: safeVaultAddress,
+    functionName: "timelockDelay",
+    query: { enabled: Boolean(vaultAddress) },
+  } as any);
 
   const { data: isAdmin } = useReadContract({
     abi: accessControlAbi,
@@ -201,6 +211,38 @@ export function AdminActions() {
     setSalt(createSalt());
   }
 
+  async function executeCapIncrease() {
+    if (!vaultAddress) {
+      return;
+    }
+    setNotice(null);
+    if (!executeStrategy || !executeCap || !executeSalt) {
+      setNotice("All fields required: strategy, cap, salt.");
+      return;
+    }
+    if (!isAddress(executeStrategy)) {
+      setNotice("Invalid strategy address.");
+      return;
+    }
+    let capValue: bigint;
+    try {
+      capValue = BigInt(executeCap);
+    } catch {
+      setNotice("Cap must be a valid integer in USDC decimals.");
+      return;
+    }
+    await trackTx(
+      () =>
+        writeContractAsync({
+          abi: blendedVaultAbi,
+          address: vaultAddress,
+          functionName: "executeCapIncrease",
+          args: [executeStrategy as `0x${string}`, capValue, keccak256(toBytes(executeSalt))],
+        }),
+      { title: "Execute cap increase" }
+    );
+  }
+
   return (
     <Card className="animate-rise">
       <CardHeader>
@@ -296,6 +338,42 @@ export function AdminActions() {
           >
             Schedule Cap Increase
           </Button>
+        </div>
+        <div className="section-divider" />
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted">
+              Execute scheduled cap increase{" "}
+              {timelockDelay != null
+                ? `(delay: ${Math.round(Number(timelockDelay) / 3600)}h)`
+                : ""}
+            </p>
+          </div>
+          <Input
+            value={executeStrategy}
+            onChange={(event) => setExecuteStrategy(event.target.value)}
+            placeholder="Strategy address"
+          />
+          <Input
+            value={executeCap}
+            onChange={(event) => setExecuteCap(event.target.value)}
+            placeholder="Cap in USDC decimals (e.g. 250000000000)"
+          />
+          <Input
+            value={executeSalt}
+            onChange={(event) => setExecuteSalt(event.target.value)}
+            placeholder="Salt used when scheduling"
+          />
+          <Button
+            variant="outline"
+            disabled={!isCurator || isPending || !canWrite}
+            onClick={executeCapIncrease}
+          >
+            Execute Cap Increase
+          </Button>
+          <p className="text-[11px] text-muted">
+            Use the same strategy, cap, and salt values that were used when scheduling.
+          </p>
         </div>
       </CardContent>
     </Card>
